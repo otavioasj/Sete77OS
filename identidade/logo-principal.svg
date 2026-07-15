@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 220" width="760" height="220">
+  <g transform="translate(8,24) scale(0.86)"><g transform="rotate(-11 100 100)">
+    <path d="M65 24 L150 24 Q160 24 160 34 L160 150 Q160 160 150 160 L62 160 Q52 160 50 151 L33 86 Q31 78 37 72 L58 30 Q60 24 65 24 Z" fill="#C0502F" stroke="#C79A3A" stroke-width="2.6"/>
+    <circle cx="62" cy="58" r="8.5" fill="none" stroke="#C79A3A" stroke-width="4"/>
+    <path d="M60 50 C 50 34, 78 30, 70 16" fill="none" stroke="#C79A3A" stroke-width="4" stroke-linecap="round"/>
+    <text x="105" y="123" text-anchor="middle" font-family="Fraunces,Georgia,'Liberation Serif',serif" font-size="88" font-weight="700" fill="#F7EFD9">$</text>
+  </g></g>
+  <line x1="206" y1="64" x2="206" y2="156" stroke="#E2D2B4" stroke-width="2"/>
+  <text x="224" y="102" font-family="Fraunces,Georgia,'Liberation Serif',serif" font-size="54" font-weight="600" letter-spacing="1.5" fill="#2B2218">ARTESANATO</text>
+  <text x="224" y="158" font-family="Fraunces,Georgia,'Liberation Serif',serif" font-size="54" font-weight="700" letter-spacing="2.5" fill="#C0502F">LUCRATIVO</text>
+  <text x="226" y="188" font-family="Arial,sans-serif" font-size="16.5" letter-spacing="5" fill="#A8842F">PRECIFICAÇÃO PARA QUEM CRIA</text>
+</svg>

@@ -113,3 +113,65 @@ Quando o usuário pedir skill nova:
 4. Se a skill precisar de arquivos de apoio (templates, exemplos),
    criar dentro da pasta da skill
 5. Seguir o fluxo da skill-creator nativa do Claude Code
+
+---
+
+# Artesanato Lucrativo — perfil do negócio (solopreneur)
+
+> Seção preenchida pelo `/instalar`. Perfil: criadora solo, marca pessoal,
+> audiência como ativo principal.
+
+## O que é esse workspace
+
+Operação do negócio **Artesanato Lucrativo**: onde a criadora desenvolve o
+produto, produz conteúdo, faz marketing/SEO/ads e fecha venda do infoproduto.
+NÃO é o produto entregue às clientes — as clientes recebem o curso + o app
+Precificador (projeto de código em pasta separada).
+
+**Estrutura de pastas:**
+- `_memoria/` — quem é a criadora, como fala, o que tá em foco
+- `identidade/` — cores, fontes, logo, padrão visual da marca
+- `marketing/` — conteúdo, SEO, campanhas (saída das skills)
+- `saidas/` — análises, e-mails, documentos pontuais
+- `dados/` — arquivos a analisar (CSV, PDF, planilha)
+- `scripts/` — utilitários
+- `templates/` — modelos das skills e perfis
+
+## Quem é
+
+Criadora solo do **Artesanato Lucrativo**: ensina empreendedoras de papelaria
+personalizada a precificar seus produtos do jeito certo. Conhece a rotina real
+da artesã (cronometrar peça, custo de material, venda em feira/Instagram).
+
+## Audiência / clientes
+
+Artesãs e empreendedoras de papelaria personalizada (caixas, kits de festa,
+convites, lembrancinhas) que já vendem mas têm dificuldade em precificar.
+
+## Tom de voz
+
+Ver `_memoria/preferencias.md`. Resumo: direto, acolhedor, concreto, pt-BR.
+Evitar emoji em e-mail formal e jargão de guru ("alavancar" etc.).
+
+## Posicionamento
+
+Tirar a artesã do achismo na hora de cobrar — método prático de precificação
+que faz ela parar de trabalhar no prejuízo. Tese: preço certo é o que separa
+hobby de negócio lucrativo.
+
+## Regras do sistema
+
+- Conteúdo novo salvar em `marketing/conteudo/<tipo>-<tema>-<data>/`
+- Antes de qualquer peça visual, ler `identidade/design-guide.md`
+- O app Precificador é projeto de código separado (`d:\10-PROJETOS\Projects\PapelariaLucrativa`); se entrar como projeto interno, usar `/novo-projeto`
+- Estágio atual: pré-lançamento (ver `_memoria/estrategia.md`) — priorizar fechar o produto antes de marketing pesado
+
+## Ferramentas conectadas
+
+- [ ] Notion
+- [ ] Canva
+- [ ] Google Calendar
+- [ ] Meta Ads
+- [ ] Google Ads
+
+*(Marcar conforme for instalando os MCPs)*

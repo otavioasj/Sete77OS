@@ -1,4 +1,6 @@
 ---
+import LogoMark from "./LogoMark.astro";
+
 const navItems = [
   { label: "Serviços", href: "/servicos" },
   { label: "Processo", href: "/processo" },
@@ -9,22 +11,23 @@ const navItems = [
 const currentPath = Astro.url.pathname;
 ---
 
-<header class="navbar-wrap">
+<header class="navbar-wrap" id="navbar">
   <div class="navbar">
-    <a href="/" class="logo" aria-label="Synapse — página inicial">
-      <img src="/logo.jpeg" alt="Synapse" width="120" height="60" />
+    <a href="/" class="logo" aria-label="Synapse, página inicial">
+      <LogoMark size={26} />
+      <span class="wordmark">Synapse</span>
     </a>
 
     <nav class="nav-links" aria-label="Navegação principal">
       {
-        navItems.map((item) => (
-          <a
-            href={item.href}
-            class:list={["nav-link", { active: currentPath.startsWith(item.href) }]}
-          >
-            {item.label}
-          </a>
-        ))
+        navItems.map((item) => {
+          const active = currentPath.startsWith(item.href);
+          return (
+            <a href={item.href} class:list={["nav-link", { active }]}>
+              {item.label}
+            </a>
+          );
+        })
       }
     </nav>
 
@@ -49,7 +52,7 @@ const currentPath = Astro.url.pathname;
     position: fixed;
     inset-inline: 0;
     top: 0;
-    z-index: 50;
+    z-index: var(--z-nav);
     display: flex;
     justify-content: center;
     padding: var(--space-3) var(--space-4) 0;
@@ -60,33 +63,50 @@ const currentPath = Astro.url.pathname;
     align-items: center;
     gap: var(--space-4);
     width: 100%;
-    max-width: 920px;
+    max-width: 960px;
     height: var(--nav-height-mobile);
-    padding-inline: var(--space-4);
-    border-radius: var(--radius-full);
-    border: 1px solid var(--color-border);
-    background: rgba(255, 255, 255, 0.8);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    box-shadow: var(--shadow-nav);
+    padding-inline: var(--space-4) var(--space-2);
+    border-radius: var(--radius-panel);
+    border: 1px solid var(--border-dark);
+    background: rgba(6, 8, 12, 0.6);
+    backdrop-filter: blur(var(--blur-glass));
+    -webkit-backdrop-filter: blur(var(--blur-glass));
+    transition: background-color var(--duration-normal) var(--ease-out),
+      border-color var(--duration-normal) var(--ease-out);
   }
 
   @media (min-width: 1024px) {
     .navbar {
       height: var(--nav-height);
-      padding-inline: var(--space-4) var(--space-3);
+      padding-inline: var(--space-5) var(--space-3);
     }
   }
 
-  .logo img {
-    height: 32px;
-    width: auto;
+  /* Consciência de contraste — a home tem um registro claro (Resultados);
+     quando ele passa atrás da navbar, o vidro clareia. */
+  .navbar-wrap.on-light .navbar {
+    background: rgba(247, 249, 251, 0.72);
+    border-color: var(--border-light);
+    color: var(--text-on-light);
   }
 
-  @media (min-width: 1024px) {
-    .logo img {
-      height: 36px;
-    }
+  .logo {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    text-decoration: none;
+  }
+
+  .wordmark {
+    font-family: var(--font-display);
+    font-size: var(--text-md);
+    font-weight: var(--weight-semibold);
+    color: var(--text-on-dark);
+    letter-spacing: var(--tracking-tight);
+  }
+
+  .navbar-wrap.on-light .wordmark {
+    color: var(--text-on-light);
   }
 
   .nav-links {
@@ -96,31 +116,43 @@ const currentPath = Astro.url.pathname;
   @media (min-width: 1024px) {
     .nav-links {
       display: flex;
-      gap: var(--space-4);
-      margin-left: var(--space-3);
+      align-items: center;
+      gap: var(--space-5);
+      margin-left: var(--space-4);
     }
   }
 
   .nav-link {
+    font-family: var(--font-sans);
     font-size: var(--text-sm);
     font-weight: var(--weight-medium);
-    color: var(--color-text-secondary);
+    color: var(--text-on-dark-soft);
     text-decoration: none;
     transition: color var(--duration-fast) var(--ease-out);
   }
 
+  .navbar-wrap.on-light .nav-link {
+    color: var(--text-on-light-soft);
+  }
+
   .nav-link:hover,
   .nav-link.active {
-    color: var(--color-text);
+    color: var(--text-on-dark);
+  }
+
+  .navbar-wrap.on-light .nav-link:hover,
+  .navbar-wrap.on-light .nav-link.active {
+    color: var(--text-on-light);
   }
 
   .cta {
     display: none;
     margin-left: auto;
     padding: 10px var(--space-4);
-    background: var(--color-bg-dark);
-    color: var(--color-text-on-dark);
-    border-radius: var(--radius-full);
+    background: var(--signal);
+    color: var(--signal-ink);
+    border-radius: var(--radius-interactive);
+    font-family: var(--font-sans);
     font-size: var(--text-sm);
     font-weight: var(--weight-medium);
     text-decoration: none;
@@ -128,7 +160,7 @@ const currentPath = Astro.url.pathname;
   }
 
   .cta:hover {
-    background: #16283c;
+    background: var(--signal-strong);
   }
 
   @media (min-width: 1024px) {
@@ -148,7 +180,7 @@ const currentPath = Astro.url.pathname;
     gap: 5px;
     background: none;
     border: none;
-    border-radius: var(--radius-full);
+    border-radius: var(--radius-interactive);
     cursor: pointer;
   }
 
@@ -161,18 +193,21 @@ const currentPath = Astro.url.pathname;
   .menu-toggle span {
     width: 20px;
     height: 2px;
-    background: var(--color-text);
+    background: var(--text-on-dark);
+  }
+
+  .navbar-wrap.on-light .menu-toggle span {
+    background: var(--text-on-light);
   }
 
   .mobile-menu {
     position: fixed;
     inset-inline: var(--space-4);
     top: calc(var(--nav-height-mobile) + var(--space-4) + var(--space-3));
-    z-index: 49;
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-lg);
-    background: var(--color-bg);
-    box-shadow: var(--shadow-md);
+    z-index: var(--z-mobile-menu);
+    border: 1px solid var(--border-dark);
+    border-radius: var(--radius-panel);
+    background: var(--canvas-raised);
   }
 
   .mobile-menu nav {
@@ -183,30 +218,19 @@ const currentPath = Astro.url.pathname;
   }
 
   .mobile-link {
+    font-family: var(--font-sans);
     font-size: var(--text-base);
-    color: var(--color-text);
+    color: var(--text-on-dark);
     text-decoration: none;
     padding: var(--space-2) 0;
   }
 
   .mobile-cta {
     font-weight: var(--weight-medium);
-    color: var(--color-accent-contrast);
+    color: var(--signal);
   }
 </style>
 
 <script>
-  const toggle = document.getElementById("menu-toggle");
-  const menu = document.getElementById("mobile-menu");
-
-  toggle?.addEventListener("click", () => {
-    const isHidden = menu?.hasAttribute("hidden");
-    if (isHidden) {
-      menu?.removeAttribute("hidden");
-      toggle.setAttribute("aria-expanded", "true");
-    } else {
-      menu?.setAttribute("hidden", "");
-      toggle.setAttribute("aria-expanded", "false");
-    }
-  });
+  import("../scripts/navbar");
 </script>

@@ -55,7 +55,9 @@ def _build_prompt(payload: RecommendationRequest) -> tuple[str, str]:
         "Regra fixa: nao invente nenhum numero, use somente os dados do diagnostico recebido. "
         "Escreva em portugues do Brasil, direto, como uma pessoa falando com outra, sem formalidade "
         "excessiva, sem cliche, sem travessao. Organize por prioridade, mais urgente primeiro, e feche "
-        "com os proximos passos praticos que a agencia deve tomar essa semana."
+        "com os proximos passos praticos que a agencia deve tomar essa semana. Isso e um relatorio, nao "
+        "uma conversa: nunca termine com pergunta, oferta de ajuda adicional ou convite para o usuario "
+        "responder. O texto acaba no ultimo passo do plano de acao."
     )
 
     lines = [
@@ -147,6 +149,8 @@ def generate_recommendation(
     row = {
         "owner_id": user.id,
         "client_id": client_id,
+        "title": f"Plano de acao consultivo ({payload.period_label})",
+        "generated_by": "openai",
         "period": payload.period,
         "snapshot": payload.model_dump(),
         "content": content,

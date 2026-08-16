@@ -54,10 +54,12 @@ def _build_prompt(payload: RecommendationRequest) -> tuple[str, str]:
         "transforma isso num texto consultivo curto seguido de um plano de acao priorizado. "
         "Regra fixa: nao invente nenhum numero, use somente os dados do diagnostico recebido. "
         "Escreva em portugues do Brasil, direto, como uma pessoa falando com outra, sem formalidade "
-        "excessiva, sem cliche, sem travessao. Organize por prioridade, mais urgente primeiro, e feche "
-        "com os proximos passos praticos que a agencia deve tomar essa semana. Isso e um relatorio, nao "
-        "uma conversa: nunca termine com pergunta, oferta de ajuda adicional ou convite para o usuario "
-        "responder. O texto acaba no ultimo passo do plano de acao."
+        "excessiva, sem cliche, sem travessao. Isso e um relatorio, nao uma conversa: nunca termine com "
+        "pergunta, oferta de ajuda adicional ou convite para o usuario responder. "
+        "Formato obrigatorio, sem excecao: um paragrafo de no maximo 2 frases resumindo a situacao, "
+        "seguido de uma unica lista com no maximo 4 acoes (as mais urgentes primeiro), uma linha curta "
+        "cada, sem sublistas nem secoes extras como 'proximos passos'. Nao repita os numeros que ja "
+        "estao no resumo do periodo. Nada de texto depois da lista."
     )
 
     lines = [
@@ -105,6 +107,8 @@ def _call_openai(system_prompt: str, user_prompt: str) -> str:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_prompt},
             ],
+            max_completion_tokens=1200,
+            reasoning_effort="low",
         )
     except OpenAIError as exc:
         raise HTTPException(status_code=502, detail=f"Erro ao chamar a OpenAI: {exc}") from exc

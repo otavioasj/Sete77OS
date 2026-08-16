@@ -749,6 +749,50 @@ button {
   line-height: 1.45;
 }
 
+.ai-plan {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-soft);
+}
+
+.ai-plan-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.ai-plan-head span {
+  display: block;
+  color: var(--muted);
+  font-weight: 900;
+  font-size: 0.78rem;
+}
+
+.ai-plan-head strong {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.85rem;
+}
+
+.ai-plan-error {
+  color: var(--red);
+  font-size: 0.85rem;
+}
+
+.ai-plan-body p {
+  margin: 0 0 10px;
+  line-height: 1.55;
+}
+
+.ai-plan-body p:last-child {
+  margin-bottom: 0;
+}
+
 .segmented-control {
   min-height: 42px;
   display: inline-flex;

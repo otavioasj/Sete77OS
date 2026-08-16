@@ -193,3 +193,25 @@ create policy "campaign_daily_metrics_owner_select" on public.campaign_daily_met
 drop policy if exists "sync_runs_owner_select" on public.sync_runs;
 create policy "sync_runs_owner_select" on public.sync_runs
   for select using (auth.uid() = owner_id);
+
+-- Otimizacao IA: plano de acao consultivo gerado a partir do diagnostico deterministico.
+create table if not exists public.recommendations (
+  id uuid primary key default gen_random_uuid()
+);
+
+alter table public.recommendations add column if not exists owner_id uuid;
+alter table public.recommendations add column if not exists client_id uuid;
+alter table public.recommendations add column if not exists period text;
+alter table public.recommendations add column if not exists snapshot jsonb not null default '{}'::jsonb;
+alter table public.recommendations add column if not exists content text;
+alter table public.recommendations add column if not exists model text default '';
+alter table public.recommendations add column if not exists created_at timestamptz not null default now();
+
+create index if not exists recommendations_client_period_idx
+  on public.recommendations (client_id, period, created_at desc);
+
+alter table public.recommendations enable row level security;
+
+drop policy if exists "recommendations_owner_select" on public.recommendations;
+create policy "recommendations_owner_select" on public.recommendations
+  for select using (auth.uid() = owner_id);

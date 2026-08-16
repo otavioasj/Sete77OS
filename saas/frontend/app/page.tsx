@@ -116,6 +116,14 @@ type AiPriority = {
   tone: CampaignPerformance["tone"];
 };
 
+type AiRecommendation = {
+  id: string;
+  content: string;
+  model: string;
+  period: string;
+  created_at: string;
+};
+
 const datePresetLabels: Record<DatePreset, string> = {
   last_30d: "Ultimos 30 dias",
   last_7d: "Ultimos 7 dias",
@@ -299,6 +307,10 @@ export default function Home() {
   const [datePreset, setDatePreset] = useState<DatePreset>("last_30d");
   const [customSince, setCustomSince] = useState("");
   const [customUntil, setCustomUntil] = useState("");
+  const [aiRecommendation, setAiRecommendation] = useState<AiRecommendation | null>(null);
+  const [aiRecommendationLoading, setAiRecommendationLoading] = useState(false);
+  const [aiRecommendationGenerating, setAiRecommendationGenerating] = useState(false);
+  const [aiRecommendationError, setAiRecommendationError] = useState("");
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
@@ -393,6 +405,14 @@ export default function Home() {
       if (customUntil) params.set("until", customUntil);
     }
     return params.toString();
+  }
+
+  function periodKey(preset = datePreset) {
+    return preset === "custom" ? `custom:${customSince}:${customUntil}` : preset;
+  }
+
+  function periodLabel(preset = datePreset) {
+    return preset === "custom" ? `${customSince} a ${customUntil}` : datePresetLabels[preset];
   }
 
   function syncPeriodPayload() {
@@ -497,6 +517,8 @@ export default function Home() {
     setSelectedClientId(clientId);
     setApiLoading(true);
     setApiMessage("");
+    setAiRecommendation(null);
+    setAiRecommendationError("");
     try {
       const data = await apiFetch(`/meta/summary/${clientId}?${periodSearchParams(preset)}`);
       setClientSummary(data);
@@ -504,10 +526,63 @@ export default function Home() {
       setCampaignStatusFilter("all");
       setCampaignSearch("");
       setHistoryOpen(false);
+      void loadAiRecommendation(clientId, preset);
     } catch (error) {
       setApiMessage(error instanceof Error ? error.message : "Nao foi possivel carregar o cliente.");
     } finally {
       setApiLoading(false);
+    }
+  }
+
+  async function loadAiRecommendation(clientId: string, preset = datePreset) {
+    setAiRecommendationLoading(true);
+    try {
+      const data = await apiFetch(`/optimize/${clientId}?period=${encodeURIComponent(periodKey(preset))}`);
+      setAiRecommendation(data.recommendation ?? null);
+    } catch {
+      setAiRecommendation(null);
+    } finally {
+      setAiRecommendationLoading(false);
+    }
+  }
+
+  async function generateAiRecommendation() {
+    if (!selectedClientId || !clientSummary || !displayedTotals) return;
+    setAiRecommendationGenerating(true);
+    setAiRecommendationError("");
+    try {
+      const data = await apiFetch(`/optimize/${selectedClientId}`, {
+        method: "POST",
+        body: JSON.stringify({
+          period: periodKey(),
+          period_label: periodLabel(),
+          client_name: clientSummary.client.name,
+          totals: {
+            spend: displayedTotals.spend,
+            metaResults: displayedTotals.metaResults,
+            resultLabel: displayedTotals.resultLabel,
+            costPerResult: displayedTotals.costPerResult,
+            ctr: displayedTotals.ctr,
+            cpm: displayedTotals.cpm,
+            cpl: displayedTotals.cpl,
+            reach: displayedTotals.reach,
+            clicks: displayedTotals.clicks,
+            impressions: displayedTotals.impressions
+          },
+          priorities: aiPriorities.map((priority) => ({
+            campaign_name: priority.campaign.name,
+            title: priority.title,
+            action: priority.action,
+            impact: priority.impact,
+            severity: priority.severity
+          }))
+        })
+      });
+      setAiRecommendation(data.recommendation ?? null);
+    } catch (error) {
+      setAiRecommendationError(error instanceof Error ? error.message : "Nao foi possivel gerar o plano de acao.");
+    } finally {
+      setAiRecommendationGenerating(false);
     }
   }
 
@@ -1165,6 +1240,33 @@ export default function Home() {
                       </article>
                     ))}
                     {!aiPriorities.length ? <p className="muted">Nenhuma prioridade critica encontrada para o filtro atual.</p> : null}
+                  </div>
+
+                  <div className="ai-plan">
+                    <div className="ai-plan-head">
+                      <div>
+                        <span>Plano de acao com IA</span>
+                        {aiRecommendation ? (
+                          <strong>Gerado em {new Date(aiRecommendation.created_at).toLocaleString("pt-BR")}</strong>
+                        ) : null}
+                      </div>
+                      <button className="secondary-button" onClick={generateAiRecommendation} disabled={aiRecommendationGenerating}>
+                        <Sparkles size={16} />
+                        {aiRecommendationGenerating ? "Gerando..." : aiRecommendation ? "Atualizar plano" : "Gerar plano de acao"}
+                      </button>
+                    </div>
+                    {aiRecommendationError ? <p className="ai-plan-error">{aiRecommendationError}</p> : null}
+                    {aiRecommendation ? (
+                      <div className="ai-plan-body">
+                        {aiRecommendation.content.split(/\n{2,}/).map((paragraph, index) => (
+                          <p key={index}>{paragraph}</p>
+                        ))}
+                      </div>
+                    ) : aiRecommendationLoading ? (
+                      <p className="muted compact-muted">Verificando plano salvo...</p>
+                    ) : !aiRecommendationGenerating ? (
+                      <p className="muted compact-muted">Gere um plano de acao consultivo em cima das prioridades acima.</p>
+                    ) : null}
                   </div>
                 </>
               )}

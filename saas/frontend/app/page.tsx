@@ -326,6 +326,15 @@ function decimalInputValue(value: string) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function aiPlanActionLines(content: string) {
+  return content
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => /^[-*]\s+/.test(line))
+    .map((line) => line.replace(/^[-*]\s+/, "").trim())
+    .filter(Boolean);
+}
+
 export default function Home() {
   const [session, setSession] = useState<Session | null>(null);
   const [email, setEmail] = useState("");
@@ -458,6 +467,11 @@ export default function Home() {
   }, [actionItems]);
 
   const latestActionItems = useMemo(() => actionItems.slice(0, 5), [actionItems]);
+
+  const aiPlanActions = useMemo(
+    () => (aiRecommendation ? aiPlanActionLines(aiRecommendation.content) : []),
+    [aiRecommendation]
+  );
 
   const selectedCampaignCount = selectedCampaignIds.length;
 
@@ -746,6 +760,40 @@ export default function Home() {
       setActionMessage(error instanceof Error ? error.message : "Nao foi possivel registrar a acao manual.");
     } finally {
       setManualActionSaving(false);
+    }
+  }
+
+  async function savePlanAction(action: string, index: number) {
+    if (!selectedClientId || !aiRecommendation) return;
+    const title = action.length > 90 ? `${action.slice(0, 87)}...` : action;
+    const key = actionItemKey(periodKey(), `ai-plan:${aiRecommendation.id}:${index}`, title);
+    setActionSavingKey(key);
+    setActionMessage("");
+    try {
+      const data = await apiFetch(`/actions/${selectedClientId}`, {
+        method: "POST",
+        body: JSON.stringify({
+          period: periodKey(),
+          campaign_external_id: `ai-plan:${aiRecommendation.id}:${index}`,
+          campaign_name: "Plano IA",
+          title,
+          action,
+          impact: "Acao derivada do plano consultivo da IA.",
+          severity: 1,
+          tone: "blue",
+          status: "approved",
+        }),
+      });
+      const saved = data.action as ActionItem;
+      setActionItems((current) => {
+        const next = current.filter((item) => actionItemKey(item.period, item.campaign_external_id, item.title) !== key);
+        return [saved, ...next];
+      });
+      setActionMessage("Item do plano enviado para a Central de Acoes.");
+    } catch (error) {
+      setActionMessage(error instanceof Error ? error.message : "Nao foi possivel salvar o item do plano.");
+    } finally {
+      setActionSavingKey("");
     }
   }
 
@@ -1526,6 +1574,28 @@ export default function Home() {
                         {aiRecommendation.content.split(/\n{2,}/).map((paragraph, index) => (
                           <p key={index}>{paragraph}</p>
                         ))}
+                        {aiPlanActions.length ? (
+                          <div className="ai-plan-action-list">
+                            <span>Enviar itens para a Central de Acoes</span>
+                            {aiPlanActions.map((action, index) => {
+                              const title = action.length > 90 ? `${action.slice(0, 87)}...` : action;
+                              const key = actionItemKey(periodKey(), `ai-plan:${aiRecommendation.id}:${index}`, title);
+                              const savedAction = actionItemByKey.get(key);
+                              return (
+                                <div className="ai-plan-action-row" key={key}>
+                                  <p>{action}</p>
+                                  {savedAction ? (
+                                    <div className={`action-status ${savedAction.status}`}>{actionStatusLabel(savedAction.status)}</div>
+                                  ) : (
+                                    <button className="ghost-button" onClick={() => savePlanAction(action, index)} disabled={actionSavingKey === key}>
+                                      Adicionar
+                                    </button>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ) : null}
                       </div>
                     ) : aiRecommendationLoading ? (
                       <p className="muted compact-muted">Verificando plano salvo...</p>

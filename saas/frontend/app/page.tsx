@@ -357,6 +357,8 @@ export default function Home() {
   const [actionItems, setActionItems] = useState<ActionItem[]>([]);
   const [actionMessage, setActionMessage] = useState("");
   const [actionSavingKey, setActionSavingKey] = useState("");
+  const [manualActionForm, setManualActionForm] = useState({ title: "", action: "" });
+  const [manualActionSaving, setManualActionSaving] = useState(false);
   const [settingsForm, setSettingsForm] = useState({
     name: "",
     monthly_budget: "",
@@ -711,6 +713,36 @@ export default function Home() {
       setActionMessage(error instanceof Error ? error.message : "Nao foi possivel salvar a decisao.");
     } finally {
       setActionSavingKey("");
+    }
+  }
+
+  async function saveManualAction() {
+    if (!selectedClientId || !manualActionForm.title.trim() || !manualActionForm.action.trim()) return;
+    setManualActionSaving(true);
+    setActionMessage("");
+    try {
+      const data = await apiFetch(`/actions/${selectedClientId}`, {
+        method: "POST",
+        body: JSON.stringify({
+          period: periodKey(),
+          campaign_external_id: `manual:${Date.now()}`,
+          campaign_name: "Conta",
+          title: manualActionForm.title.trim(),
+          action: manualActionForm.action.trim(),
+          impact: "Acao operacional registrada manualmente.",
+          severity: 1,
+          tone: "blue",
+          status: "done",
+        }),
+      });
+      const saved = data.action as ActionItem;
+      setActionItems((current) => [saved, ...current]);
+      setManualActionForm({ title: "", action: "" });
+      setActionMessage("Acao manual registrada.");
+    } catch (error) {
+      setActionMessage(error instanceof Error ? error.message : "Nao foi possivel registrar a acao manual.");
+    } finally {
+      setManualActionSaving(false);
     }
   }
 
@@ -1493,6 +1525,26 @@ export default function Home() {
                   <span>Rejeitadas</span>
                   <strong>{actionStats.rejected}</strong>
                 </div>
+              </div>
+              <div className="manual-action-form">
+                <span>Registrar acao manual</span>
+                <input
+                  value={manualActionForm.title}
+                  onChange={(event) => setManualActionForm((current) => ({ ...current, title: event.target.value }))}
+                  placeholder="Ex.: Ajuste de publico"
+                />
+                <textarea
+                  value={manualActionForm.action}
+                  onChange={(event) => setManualActionForm((current) => ({ ...current, action: event.target.value }))}
+                  placeholder="Descreva o que foi feito."
+                />
+                <button
+                  className="ghost-button"
+                  onClick={saveManualAction}
+                  disabled={manualActionSaving || !selectedClientId || !manualActionForm.title.trim() || !manualActionForm.action.trim()}
+                >
+                  <CheckCircle2 size={16} /> {manualActionSaving ? "Registrando..." : "Registrar"}
+                </button>
               </div>
               <div className="action-history-list">
                 {latestActionItems.map((item) => (

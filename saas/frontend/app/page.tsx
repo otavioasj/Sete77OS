@@ -2457,11 +2457,7 @@ export default function Home() {
                 <p className="eyebrow">Calculadora</p>
                 <h3>Planejamento de campanhas e metas</h3>
               </div>
-              <div className="topbar-actions">
-                <button className="ghost-button" onClick={() => window.open("https://calculadora.lucashabiel.com.br/", "_blank", "noopener,noreferrer")}>
-                  <Calculator size={18} /> Abrir em nova guia
-                </button>
-              </div>
+              <Calculator size={21} />
             </div>
             <div className="calculator-context">
               <div>
@@ -2558,14 +2554,6 @@ export default function Home() {
                   {calculatorResult.breakEvenCpl ? ` CPL precisa ficar ate ${formatCurrency(calculatorResult.breakEvenCpl)} para empatar na margem informada.` : " Informe ticket e margem para calcular o CPL limite."}
                 </span>
               </div>
-            </div>
-            <div className="calculator-frame-wrap">
-              <iframe
-                className="calculator-frame"
-                src="https://calculadora.lucashabiel.com.br/"
-                title="Calculadora de campanhas"
-                loading="lazy"
-              />
             </div>
           </section>
         ) : null}

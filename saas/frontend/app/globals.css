@@ -2321,23 +2321,6 @@ svg {
   line-height: 1.45;
 }
 
-.calculator-frame-wrap {
-  margin-top: 16px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  overflow: hidden;
-  background: var(--surface-soft);
-}
-
-.calculator-frame {
-  display: block;
-  width: 100%;
-  height: min(820px, calc(100vh - 300px));
-  min-height: 620px;
-  border: 0;
-  background: #fff;
-}
-
 /* ---------------------------------------------------------------------- */
 /* Configuracoes                                                          */
 /* ---------------------------------------------------------------------- */
@@ -2540,11 +2523,6 @@ svg {
 
   .native-calculator-head .select-field {
     min-width: 0;
-  }
-
-  .calculator-frame {
-    height: 680px;
-    min-height: 560px;
   }
 }
 

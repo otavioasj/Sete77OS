@@ -15,6 +15,11 @@ alter table public.clients add column if not exists source text not null default
 alter table public.clients add column if not exists meta_ad_account_id text;
 alter table public.clients add column if not exists meta_page_id text;
 alter table public.clients add column if not exists meta_instagram_account_id text;
+alter table public.clients add column if not exists monthly_budget numeric not null default 0;
+alter table public.clients add column if not exists target_cpl numeric not null default 0;
+alter table public.clients add column if not exists account_manager text not null default '';
+alter table public.clients add column if not exists business_goal text not null default '';
+alter table public.clients add column if not exists qualified_lead_definition text not null default '';
 alter table public.clients add column if not exists created_at timestamptz not null default now();
 alter table public.clients add column if not exists updated_at timestamptz not null default now();
 

@@ -53,6 +53,11 @@ type ClientRecord = {
   name: string;
   source: string;
   meta_ad_account_id?: string | null;
+  monthly_budget?: number | null;
+  target_cpl?: number | null;
+  account_manager?: string | null;
+  business_goal?: string | null;
+  qualified_lead_definition?: string | null;
   created_at: string;
 };
 
@@ -315,6 +320,12 @@ function actionStatusTimestamp(item: ActionItem) {
   return Number.isNaN(date.getTime()) ? "" : date.toLocaleString("pt-BR");
 }
 
+function decimalInputValue(value: string) {
+  const normalized = value.replace(/\./g, "").replace(",", ".");
+  const parsed = Number(normalized || 0);
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
 export default function Home() {
   const [session, setSession] = useState<Session | null>(null);
   const [email, setEmail] = useState("");
@@ -346,6 +357,16 @@ export default function Home() {
   const [actionItems, setActionItems] = useState<ActionItem[]>([]);
   const [actionMessage, setActionMessage] = useState("");
   const [actionSavingKey, setActionSavingKey] = useState("");
+  const [settingsForm, setSettingsForm] = useState({
+    name: "",
+    monthly_budget: "",
+    target_cpl: "",
+    account_manager: "",
+    business_goal: "",
+    qualified_lead_definition: "",
+  });
+  const [settingsMessage, setSettingsMessage] = useState("");
+  const [settingsSaving, setSettingsSaving] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
@@ -436,6 +457,24 @@ export default function Home() {
   const latestActionItems = useMemo(() => actionItems.slice(0, 5), [actionItems]);
 
   const selectedCampaignCount = selectedCampaignIds.length;
+
+  const selectedClient = useMemo(
+    () => clients.find((client) => client.id === selectedClientId) ?? clientSummary?.client ?? null,
+    [clientSummary?.client, clients, selectedClientId]
+  );
+
+  useEffect(() => {
+    if (!selectedClient) return;
+    setSettingsForm({
+      name: selectedClient.name ?? "",
+      monthly_budget: selectedClient.monthly_budget ? String(selectedClient.monthly_budget) : "",
+      target_cpl: selectedClient.target_cpl ? String(selectedClient.target_cpl) : "",
+      account_manager: selectedClient.account_manager ?? "",
+      business_goal: selectedClient.business_goal ?? "",
+      qualified_lead_definition: selectedClient.qualified_lead_definition ?? "",
+    });
+    setSettingsMessage("");
+  }, [selectedClient]);
 
   function applyCampaignStatusFilter(nextFilter: "all" | "active" | "inactive") {
     setCampaignStatusFilter(nextFilter);
@@ -566,6 +605,34 @@ export default function Home() {
       setApiMessage(error instanceof Error ? error.message : "Nao foi possivel criar cliente.");
     } finally {
       setApiLoading(false);
+    }
+  }
+
+  async function saveClientSettings() {
+    if (!selectedClientId) return;
+    setSettingsSaving(true);
+    setSettingsMessage("");
+    try {
+      const payload = {
+        name: settingsForm.name.trim(),
+        monthly_budget: decimalInputValue(settingsForm.monthly_budget),
+        target_cpl: decimalInputValue(settingsForm.target_cpl),
+        account_manager: settingsForm.account_manager.trim(),
+        business_goal: settingsForm.business_goal.trim(),
+        qualified_lead_definition: settingsForm.qualified_lead_definition.trim(),
+      };
+      const data = await apiFetch(`/clients/${selectedClientId}`, {
+        method: "PATCH",
+        body: JSON.stringify(payload),
+      });
+      const updated = data.client as ClientRecord;
+      setClients((current) => current.map((client) => (client.id === updated.id ? updated : client)));
+      setClientSummary((current) => (current && current.client.id === updated.id ? { ...current, client: updated } : current));
+      setSettingsMessage("Configuracoes salvas.");
+    } catch (error) {
+      setSettingsMessage(error instanceof Error ? error.message : "Nao foi possivel salvar as configuracoes.");
+    } finally {
+      setSettingsSaving(false);
     }
   }
 
@@ -1602,7 +1669,118 @@ export default function Home() {
           </section>
         ) : null}
 
-        {!["Visao geral", "Clientes", "Campanhas", "Otimizacao IA", "Integracoes", "Relatorios"].includes(activeView) ? (
+        {activeView === "Configuracoes" ? (
+          <section className="content-grid">
+            <article className="panel wide settings-panel">
+              <div className="panel-head">
+                <div>
+                  <p className="eyebrow">Configuracoes</p>
+                  <h3>{selectedClient ? selectedClient.name : "Metas por cliente"}</h3>
+                </div>
+                <Settings size={22} />
+              </div>
+              <div className="campaigns-controls">
+                <label className="select-field">
+                  Cliente
+                  <select value={selectedClientId} onChange={(event) => event.target.value && loadClientSummary(event.target.value)}>
+                    <option value="">Selecione</option>
+                    {clients.map((client) => (
+                      <option value={client.id} key={client.id}>{client.name}</option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              {!selectedClient ? (
+                <p className="muted compact-muted">Selecione um cliente para configurar metas comerciais, limites e contexto de qualidade.</p>
+              ) : (
+                <div className="settings-form">
+                  <label>
+                    Nome do cliente
+                    <input
+                      value={settingsForm.name}
+                      onChange={(event) => setSettingsForm((current) => ({ ...current, name: event.target.value }))}
+                    />
+                  </label>
+                  <label>
+                    Responsavel
+                    <input
+                      value={settingsForm.account_manager}
+                      onChange={(event) => setSettingsForm((current) => ({ ...current, account_manager: event.target.value }))}
+                      placeholder="Pessoa responsavel pela conta"
+                    />
+                  </label>
+                  <label>
+                    Orcamento mensal
+                    <input
+                      inputMode="decimal"
+                      value={settingsForm.monthly_budget}
+                      onChange={(event) => setSettingsForm((current) => ({ ...current, monthly_budget: event.target.value }))}
+                      placeholder="0,00"
+                    />
+                  </label>
+                  <label>
+                    CPL alvo
+                    <input
+                      inputMode="decimal"
+                      value={settingsForm.target_cpl}
+                      onChange={(event) => setSettingsForm((current) => ({ ...current, target_cpl: event.target.value }))}
+                      placeholder="0,00"
+                    />
+                  </label>
+                  <label className="full">
+                    Objetivo comercial
+                    <input
+                      value={settingsForm.business_goal}
+                      onChange={(event) => setSettingsForm((current) => ({ ...current, business_goal: event.target.value }))}
+                      placeholder="Ex.: gerar leads para WhatsApp, visitas ao stand, formularios qualificados"
+                    />
+                  </label>
+                  <label className="full">
+                    Lead qualificado
+                    <textarea
+                      value={settingsForm.qualified_lead_definition}
+                      onChange={(event) => setSettingsForm((current) => ({ ...current, qualified_lead_definition: event.target.value }))}
+                      placeholder="Descreva o que diferencia um lead bom de um lead ruim para este cliente."
+                    />
+                  </label>
+                  <div className="settings-actions full">
+                    <button className="primary-button" onClick={saveClientSettings} disabled={settingsSaving || !settingsForm.name.trim()}>
+                      <CheckCircle2 size={18} /> {settingsSaving ? "Salvando..." : "Salvar configuracoes"}
+                    </button>
+                    {settingsMessage ? <p className="form-message">{settingsMessage}</p> : null}
+                  </div>
+                </div>
+              )}
+            </article>
+
+            <article className="panel">
+              <div className="panel-head">
+                <div>
+                  <p className="eyebrow">Contexto</p>
+                  <h3>Uso nas analises</h3>
+                </div>
+                <Target size={21} />
+              </div>
+              <div className="settings-summary">
+                <div>
+                  <span>Orcamento mensal</span>
+                  <strong>{(selectedClient?.monthly_budget ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</strong>
+                </div>
+                <div>
+                  <span>CPL alvo</span>
+                  <strong>{(selectedClient?.target_cpl ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</strong>
+                </div>
+                <div>
+                  <span>Responsavel</span>
+                  <strong>{selectedClient?.account_manager || "-"}</strong>
+                </div>
+              </div>
+              <p className="muted compact-muted">Essas metas orientam relatorios, prioridades e proximos criterios de automacao.</p>
+            </article>
+          </section>
+        ) : null}
+
+        {!["Visao geral", "Clientes", "Campanhas", "Otimizacao IA", "Integracoes", "Relatorios", "Configuracoes"].includes(activeView) ? (
           <section className="panel table-panel">
             <div className="panel-head">
               <div>

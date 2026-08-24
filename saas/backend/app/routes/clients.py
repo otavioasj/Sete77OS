@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -19,6 +20,15 @@ class ClientCreate(BaseModel):
     meta_ad_account_id: str | None = None
     meta_page_id: str | None = None
     meta_instagram_account_id: str | None = None
+
+
+class ClientUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=2, max_length=120)
+    monthly_budget: float | None = Field(default=None, ge=0)
+    target_cpl: float | None = Field(default=None, ge=0)
+    account_manager: str | None = Field(default=None, max_length=120)
+    business_goal: str | None = Field(default=None, max_length=240)
+    qualified_lead_definition: str | None = Field(default=None, max_length=600)
 
 
 def _default_slug(user: CurrentUser) -> str:
@@ -100,4 +110,36 @@ def create_client(
         raise HTTPException(status_code=500, detail=exc.message) from exc
     if not result.data:
         raise HTTPException(status_code=500, detail="Nao foi possivel criar cliente.")
+    return {"ok": True, "client": result.data[0]}
+
+
+@router.patch("/{client_id}")
+def update_client(
+    client_id: str,
+    payload: ClientUpdate,
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+) -> dict[str, object]:
+    client = get_supabase_admin()
+    data = payload.model_dump(exclude_unset=True)
+    if not data:
+        raise HTTPException(status_code=400, detail="Nenhuma alteracao enviada.")
+
+    data["updated_at"] = datetime.now(UTC).isoformat()
+    try:
+        result = (
+            client.table("clients")
+            .update(data)
+            .eq("id", client_id)
+            .eq("owner_id", user.id)
+            .execute()
+        )
+    except APIError as exc:
+        if "does not exist" in exc.message:
+            raise HTTPException(
+                status_code=500,
+                detail="Colunas de configuracao do cliente nao existem. Aplique saas/supabase/schema.sql no Supabase.",
+            ) from exc
+        raise HTTPException(status_code=500, detail=exc.message) from exc
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Cliente nao encontrado.")
     return {"ok": True, "client": result.data[0]}

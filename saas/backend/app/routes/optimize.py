@@ -35,10 +35,19 @@ class TotalsPayload(BaseModel):
     impressions: float = 0
 
 
+class ClientContextPayload(BaseModel):
+    monthly_budget: float = 0
+    target_cpl: float = 0
+    account_manager: str = ""
+    business_goal: str = ""
+    qualified_lead_definition: str = ""
+
+
 class RecommendationRequest(BaseModel):
     period: str
     period_label: str
     client_name: str
+    client_context: ClientContextPayload = Field(default_factory=ClientContextPayload)
     totals: TotalsPayload
     priorities: list[PriorityPayload] = Field(default_factory=list)
 
@@ -65,6 +74,13 @@ def _build_prompt(payload: RecommendationRequest) -> tuple[str, str]:
     lines = [
         f"Cliente: {payload.client_name}",
         f"Periodo analisado: {payload.period_label}",
+        "",
+        "Contexto comercial configurado:",
+        f"- Orcamento mensal: {_currency(payload.client_context.monthly_budget)}",
+        f"- CPL alvo: {_currency(payload.client_context.target_cpl)}",
+        f"- Responsavel: {payload.client_context.account_manager or 'Nao informado'}",
+        f"- Objetivo comercial: {payload.client_context.business_goal or 'Nao informado'}",
+        f"- Lead qualificado: {payload.client_context.qualified_lead_definition or 'Nao informado'}",
         "",
         "Resumo do periodo:",
         f"- Investimento: {_currency(payload.totals.spend)}",

@@ -725,6 +725,13 @@ export default function Home() {
           period: periodKey(),
           period_label: periodLabel(),
           client_name: clientSummary.client.name,
+          client_context: {
+            monthly_budget: clientSummary.client.monthly_budget ?? 0,
+            target_cpl: clientSummary.client.target_cpl ?? 0,
+            account_manager: clientSummary.client.account_manager ?? "",
+            business_goal: clientSummary.client.business_goal ?? "",
+            qualified_lead_definition: clientSummary.client.qualified_lead_definition ?? "",
+          },
           totals: {
             spend: displayedTotals.spend,
             metaResults: displayedTotals.metaResults,
@@ -1611,6 +1618,37 @@ export default function Home() {
                     <strong>{displayedTotals.ctr.toFixed(2)}%</strong>
                   </div>
                 </div>
+
+                <section className="report-section">
+                  <div className="report-section-head">
+                    <p className="eyebrow">Metas do cliente</p>
+                    <h3>Contexto usado na leitura</h3>
+                  </div>
+                  <div className="report-context-grid">
+                    <div>
+                      <span>Orcamento mensal</span>
+                      <strong>{(clientSummary.client.monthly_budget ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</strong>
+                    </div>
+                    <div>
+                      <span>CPL alvo</span>
+                      <strong>{(clientSummary.client.target_cpl ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</strong>
+                    </div>
+                    <div>
+                      <span>Responsavel</span>
+                      <strong>{clientSummary.client.account_manager || "-"}</strong>
+                    </div>
+                  </div>
+                  <div className="report-context-copy">
+                    <div>
+                      <strong>Objetivo comercial</strong>
+                      <p>{clientSummary.client.business_goal || "Nao informado."}</p>
+                    </div>
+                    <div>
+                      <strong>Lead qualificado</strong>
+                      <p>{clientSummary.client.qualified_lead_definition || "Nao informado."}</p>
+                    </div>
+                  </div>
+                </section>
 
                 <section className="report-section">
                   <div className="report-section-head">

@@ -1484,7 +1484,125 @@ export default function Home() {
           </section>
         ) : null}
 
-        {!["Visao geral", "Clientes", "Campanhas", "Otimizacao IA", "Integracoes"].includes(activeView) ? (
+        {activeView === "Relatorios" ? (
+          <section className="panel table-panel report-panel">
+            <div className="panel-head report-toolbar">
+              <div>
+                <p className="eyebrow">Relatorio executivo</p>
+                <h3>{clientSummary ? clientSummary.client.name : "Selecione um cliente"}</h3>
+              </div>
+              <div className="topbar-actions">
+                <button className="ghost-button" onClick={() => selectedClientId && syncClient(selectedClientId)} disabled={apiLoading || !selectedClientId}>
+                  <Activity size={18} /> Sincronizar
+                </button>
+                <button className="ghost-button" onClick={() => window.print()} disabled={!clientSummary}>
+                  <BarChart3 size={18} /> Imprimir
+                </button>
+              </div>
+            </div>
+            <div className="campaigns-controls no-print">
+              <label className="select-field">
+                Cliente
+                <select value={selectedClientId} onChange={(event) => event.target.value && loadClientSummary(event.target.value)}>
+                  <option value="">Selecione</option>
+                  {clients.map((client) => (
+                    <option value={client.id} key={client.id}>{client.name}</option>
+                  ))}
+                </select>
+              </label>
+              {periodControls}
+            </div>
+            {apiMessage ? <p className="form-message no-print">{apiMessage}</p> : null}
+            {!clientSummary || !displayedTotals ? (
+              <p className="muted compact-muted">Escolha um cliente para montar o relatorio com dados sincronizados, recomendacoes e acoes registradas.</p>
+            ) : (
+              <div className="report-document">
+                <div className="report-cover">
+                  <div>
+                    <p className="eyebrow">Creative Campaign OS</p>
+                    <h2>{clientSummary.client.name}</h2>
+                    <span>{periodLabel()} - gerado em {new Date().toLocaleDateString("pt-BR")}</span>
+                  </div>
+                  <div className="brand-mark small">C</div>
+                </div>
+
+                <div className="report-metrics">
+                  <div>
+                    <span>Investimento</span>
+                    <strong>{displayedTotals.spend.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</strong>
+                  </div>
+                  <div>
+                    <span>{displayedTotals.resultLabel}</span>
+                    <strong>{displayedTotals.metaResults.toLocaleString("pt-BR")}</strong>
+                  </div>
+                  <div>
+                    <span>Custo medio</span>
+                    <strong>{displayedTotals.costPerResult.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</strong>
+                  </div>
+                  <div>
+                    <span>CTR</span>
+                    <strong>{displayedTotals.ctr.toFixed(2)}%</strong>
+                  </div>
+                </div>
+
+                <section className="report-section">
+                  <div className="report-section-head">
+                    <p className="eyebrow">Resumo</p>
+                    <h3>Leitura do periodo</h3>
+                  </div>
+                  {aiRecommendation ? (
+                    <div className="report-copy">
+                      {aiRecommendation.content.split(/\n{2,}/).map((paragraph, index) => (
+                        <p key={index}>{paragraph}</p>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="muted">Gere o plano de acao na aba Otimizacao IA para incluir uma leitura consultiva neste relatorio.</p>
+                  )}
+                </section>
+
+                <section className="report-section">
+                  <div className="report-section-head">
+                    <p className="eyebrow">Trabalho executado</p>
+                    <h3>Acoes e decisoes</h3>
+                  </div>
+                  <div className="report-action-grid">
+                    {actionItems.map((item) => (
+                      <div className="report-action-item" key={item.id}>
+                        <div>
+                          <strong>{item.title}</strong>
+                          <span>{item.campaign_name}</span>
+                        </div>
+                        <p>{item.action}</p>
+                        <div className={`action-status ${item.status}`}>{actionStatusLabel(item.status)}</div>
+                      </div>
+                    ))}
+                    {!actionItems.length ? <p className="muted">Nenhuma acao registrada para este periodo.</p> : null}
+                  </div>
+                </section>
+
+                <section className="report-section">
+                  <div className="report-section-head">
+                    <p className="eyebrow">Campanhas</p>
+                    <h3>Principais leituras</h3>
+                  </div>
+                  <div className="report-campaign-list">
+                    {campaignRows.slice(0, 8).map((campaign) => (
+                      <div className="report-campaign-item" key={campaign.id}>
+                        <strong>{campaign.name}</strong>
+                        <span>{campaign.totals.spend.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} - {campaign.totals.metaResults} {campaign.totals.resultLabel}</span>
+                        <small>{campaign.recommendation}</small>
+                      </div>
+                    ))}
+                    {!campaignRows.length ? <p className="muted">Nenhuma campanha encontrada para o filtro atual.</p> : null}
+                  </div>
+                </section>
+              </div>
+            )}
+          </section>
+        ) : null}
+
+        {!["Visao geral", "Clientes", "Campanhas", "Otimizacao IA", "Integracoes", "Relatorios"].includes(activeView) ? (
           <section className="panel table-panel">
             <div className="panel-head">
               <div>

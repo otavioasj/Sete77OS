@@ -34,11 +34,18 @@ Preencha:
 ```env
 SUPABASE_SECRET_KEY=
 OPENAI_API_KEY=
-META_ACCESS_TOKEN=
-META_AD_ACCOUNT_ID=
+META_APP_ID=
+META_APP_SECRET=
+META_WEBHOOK_VERIFY_TOKEN=
 ```
 
-Nao coloque `SUPABASE_SECRET_KEY`, OpenAI, Meta ou Google no frontend.
+`META_ACCESS_TOKEN` e `META_AD_ACCOUNT_ID` sao legados do laboratorio local; o SaaS usa OAuth Meta com `META_APP_ID` e `META_APP_SECRET`.
+
+Nao coloque `SUPABASE_SECRET_KEY`, OpenAI, Meta ou Google no frontend. O `docker-compose.yml` expoe ao frontend apenas `NEXT_PUBLIC_*`, `APP_URL`, `APP_DOMAIN` e `BACKEND_API_URL`.
+
+## 2.1 Banco
+
+Antes de subir uma versao nova, aplique `saas/supabase/schema.sql` no SQL Editor do Supabase. A Central de Acoes depende da tabela `action_items`.
 
 ## 3. Subir containers
 
@@ -46,6 +53,13 @@ Na pasta `saas`:
 
 ```bash
 docker compose --env-file .env.production up -d --build
+```
+
+Validar:
+
+```bash
+docker compose --env-file .env.production ps
+curl -fsS https://ads.creativeagenciamkt.com.br/api/health
 ```
 
 O frontend fica publicado pelo Traefik em:

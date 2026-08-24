@@ -215,3 +215,34 @@ alter table public.recommendations enable row level security;
 drop policy if exists "recommendations_owner_select" on public.recommendations;
 create policy "recommendations_owner_select" on public.recommendations
   for select using (auth.uid() = owner_id);
+
+-- Central de acoes: decisoes operacionais aprovadas, rejeitadas ou concluidas.
+create table if not exists public.action_items (
+  id uuid primary key default gen_random_uuid()
+);
+
+alter table public.action_items add column if not exists owner_id uuid;
+alter table public.action_items add column if not exists client_id uuid;
+alter table public.action_items add column if not exists period text;
+alter table public.action_items add column if not exists campaign_external_id text not null default '';
+alter table public.action_items add column if not exists campaign_name text;
+alter table public.action_items add column if not exists title text;
+alter table public.action_items add column if not exists action text;
+alter table public.action_items add column if not exists impact text;
+alter table public.action_items add column if not exists severity integer not null default 1;
+alter table public.action_items add column if not exists tone text not null default 'blue';
+alter table public.action_items add column if not exists status text not null default 'open';
+alter table public.action_items add column if not exists approved_at timestamptz;
+alter table public.action_items add column if not exists rejected_at timestamptz;
+alter table public.action_items add column if not exists completed_at timestamptz;
+alter table public.action_items add column if not exists created_at timestamptz not null default now();
+alter table public.action_items add column if not exists updated_at timestamptz not null default now();
+
+create unique index if not exists action_items_unique_decision_idx
+  on public.action_items (owner_id, client_id, period, campaign_external_id, title);
+
+alter table public.action_items enable row level security;
+
+drop policy if exists "action_items_owner_select" on public.action_items;
+create policy "action_items_owner_select" on public.action_items
+  for select using (auth.uid() = owner_id);

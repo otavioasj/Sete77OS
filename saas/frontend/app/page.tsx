@@ -124,6 +124,22 @@ type AiRecommendation = {
   created_at: string;
 };
 
+type ActionStatus = "open" | "approved" | "rejected" | "done";
+
+type ActionItem = {
+  id: string;
+  period: string;
+  campaign_external_id: string;
+  campaign_name: string;
+  title: string;
+  action: string;
+  impact: string;
+  severity: number;
+  tone: string;
+  status: ActionStatus;
+  updated_at: string;
+};
+
 const datePresetLabels: Record<DatePreset, string> = {
   last_30d: "Ultimos 30 dias",
   last_7d: "Ultimos 7 dias",
@@ -283,6 +299,17 @@ function buildAiPriorities(campaigns: CampaignPerformance[]): AiPriority[] {
   return priorities.sort((a, b) => b.severity - a.severity || b.campaign.totals.spend - a.campaign.totals.spend);
 }
 
+function actionItemKey(period: string, campaignExternalId: string | undefined, title: string) {
+  return `${period}::${campaignExternalId ?? ""}::${title}`;
+}
+
+function actionStatusLabel(status?: ActionStatus) {
+  if (status === "approved") return "Aprovada";
+  if (status === "rejected") return "Rejeitada";
+  if (status === "done") return "Concluida";
+  return "Pendente";
+}
+
 export default function Home() {
   const [session, setSession] = useState<Session | null>(null);
   const [email, setEmail] = useState("");
@@ -311,6 +338,9 @@ export default function Home() {
   const [aiRecommendationLoading, setAiRecommendationLoading] = useState(false);
   const [aiRecommendationGenerating, setAiRecommendationGenerating] = useState(false);
   const [aiRecommendationError, setAiRecommendationError] = useState("");
+  const [actionItems, setActionItems] = useState<ActionItem[]>([]);
+  const [actionMessage, setActionMessage] = useState("");
+  const [actionSavingKey, setActionSavingKey] = useState("");
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
@@ -378,6 +408,14 @@ export default function Home() {
   }, [clientSummary, filteredCampaigns]);
 
   const aiPriorities = useMemo(() => buildAiPriorities(campaignRows), [campaignRows]);
+
+  const actionItemByKey = useMemo(() => {
+    const items = new Map<string, ActionItem>();
+    actionItems.forEach((item) => {
+      items.set(actionItemKey(item.period, item.campaign_external_id, item.title), item);
+    });
+    return items;
+  }, [actionItems]);
 
   const selectedCampaignCount = selectedCampaignIds.length;
 
@@ -527,6 +565,7 @@ export default function Home() {
       setCampaignSearch("");
       setHistoryOpen(false);
       void loadAiRecommendation(clientId, preset);
+      void loadActionItems(clientId, preset);
     } catch (error) {
       setApiMessage(error instanceof Error ? error.message : "Nao foi possivel carregar o cliente.");
     } finally {
@@ -543,6 +582,50 @@ export default function Home() {
       setAiRecommendation(null);
     } finally {
       setAiRecommendationLoading(false);
+    }
+  }
+
+  async function loadActionItems(clientId: string, preset = datePreset) {
+    try {
+      const data = await apiFetch(`/actions/${clientId}?period=${encodeURIComponent(periodKey(preset))}`);
+      setActionItems(data.actions ?? []);
+      setActionMessage("");
+    } catch (error) {
+      setActionItems([]);
+      setActionMessage(error instanceof Error ? error.message : "Nao foi possivel carregar a central de acoes.");
+    }
+  }
+
+  async function saveActionDecision(priority: AiPriority, status: ActionStatus) {
+    if (!selectedClientId) return;
+    const key = actionItemKey(periodKey(), priority.campaign.meta_campaign_id, priority.title);
+    setActionSavingKey(key);
+    setActionMessage("");
+    try {
+      const data = await apiFetch(`/actions/${selectedClientId}`, {
+        method: "POST",
+        body: JSON.stringify({
+          period: periodKey(),
+          campaign_external_id: priority.campaign.meta_campaign_id ?? "",
+          campaign_name: priority.campaign.name,
+          title: priority.title,
+          action: priority.action,
+          impact: priority.impact,
+          severity: priority.severity,
+          tone: priority.tone,
+          status,
+        }),
+      });
+      const saved = data.action as ActionItem;
+      setActionItems((current) => {
+        const next = current.filter((item) => actionItemKey(item.period, item.campaign_external_id, item.title) !== key);
+        return [saved, ...next];
+      });
+      setActionMessage(`Acao ${actionStatusLabel(status).toLowerCase()} registrada.`);
+    } catch (error) {
+      setActionMessage(error instanceof Error ? error.message : "Nao foi possivel salvar a decisao.");
+    } finally {
+      setActionSavingKey("");
     }
   }
 
@@ -1112,8 +1195,8 @@ export default function Home() {
                 <p className="eyebrow">Campanhas</p>
                 <h3>{clientSummary ? `${campaignRows.length} campanhas analisadas` : "Selecione um cliente"}</h3>
               </div>
-              <button className="ghost-button" onClick={() => selectedClientId && loadClientSummary(selectedClientId)} disabled={apiLoading || !selectedClientId}>
-                <Activity size={18} /> Atualizar
+              <button className="ghost-button" onClick={() => selectedClientId && syncClient(selectedClientId)} disabled={apiLoading || !selectedClientId}>
+                <Activity size={18} /> Sincronizar Meta
               </button>
             </div>
             <div className="campaigns-controls">
@@ -1226,19 +1309,40 @@ export default function Home() {
                     </div>
                   </div>
                   <div className="ai-priority-list">
-                    {aiPriorities.map((priority) => (
-                      <article className={`ai-priority ${priority.tone}`} key={`${priority.campaign.id}-${priority.title}`}>
-                        <div>
-                          <span>{priority.title}</span>
-                          <strong>{priority.campaign.name}</strong>
-                          <p>{priority.impact}</p>
-                        </div>
-                        <div>
-                          <small>Acao sugerida</small>
-                          <p>{priority.action}</p>
-                        </div>
-                      </article>
-                    ))}
+                    {actionMessage ? <p className="form-message">{actionMessage}</p> : null}
+                    {aiPriorities.map((priority) => {
+                      const itemKey = actionItemKey(periodKey(), priority.campaign.meta_campaign_id, priority.title);
+                      const savedAction = actionItemByKey.get(itemKey);
+                      const isSaving = actionSavingKey === itemKey;
+                      return (
+                        <article className={`ai-priority ${priority.tone}`} key={`${priority.campaign.id}-${priority.title}`}>
+                          <div>
+                            <span>{priority.title}</span>
+                            <strong>{priority.campaign.name}</strong>
+                            <p>{priority.impact}</p>
+                            <div className={`action-status ${savedAction?.status ?? "open"}`}>
+                              {savedAction?.status === "done" ? <CheckCircle2 size={15} /> : <AlertTriangle size={15} />}
+                              {actionStatusLabel(savedAction?.status)}
+                            </div>
+                          </div>
+                          <div>
+                            <small>Acao sugerida</small>
+                            <p>{priority.action}</p>
+                            <div className="action-buttons">
+                              <button className="ghost-button" onClick={() => saveActionDecision(priority, "approved")} disabled={isSaving}>
+                                Aprovar
+                              </button>
+                              <button className="ghost-button" onClick={() => saveActionDecision(priority, "rejected")} disabled={isSaving}>
+                                Rejeitar
+                              </button>
+                              <button className="ghost-button" onClick={() => saveActionDecision(priority, "done")} disabled={isSaving}>
+                                Concluir
+                              </button>
+                            </div>
+                          </div>
+                        </article>
+                      );
+                    })}
                     {!aiPriorities.length ? <p className="muted">Nenhuma prioridade critica encontrada para o filtro atual.</p> : null}
                   </div>
 

@@ -7,8 +7,12 @@ services:
         NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY}
     container_name: creative_ads_frontend
     restart: unless-stopped
-    env_file:
-      - .env.production
+    environment:
+      APP_URL: ${APP_URL}
+      APP_DOMAIN: ${APP_DOMAIN}
+      BACKEND_API_URL: ${BACKEND_API_URL}
+      NEXT_PUBLIC_SUPABASE_URL: ${NEXT_PUBLIC_SUPABASE_URL}
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY}
     networks:
       - network_public
       - creative_ads_internal

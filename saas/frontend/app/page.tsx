@@ -7,6 +7,7 @@ import {
   AlertTriangle,
   BarChart3,
   Bot,
+  Calculator,
   CheckCircle2,
   ChevronRight,
   CreditCard,
@@ -219,6 +220,7 @@ const navItems = [
   { label: "Clientes", icon: Users },
   { label: "Campanhas", icon: Megaphone },
   { label: "Otimizacao IA", icon: Bot },
+  { label: "Calculadora", icon: Calculator },
   { label: "Relatorios", icon: BarChart3 },
   { label: "Integracoes", icon: PlugZap },
   { label: "Configuracoes", icon: Settings }
@@ -2412,6 +2414,44 @@ export default function Home() {
           </section>
         ) : null}
 
+        {activeView === "Calculadora" ? (
+          <section className="panel calculator-panel">
+            <div className="panel-head">
+              <div>
+                <p className="eyebrow">Calculadora</p>
+                <h3>Planejamento de campanhas e metas</h3>
+              </div>
+              <div className="topbar-actions">
+                <button className="ghost-button" onClick={() => window.open("https://calculadora.lucashabiel.com.br/", "_blank", "noopener,noreferrer")}>
+                  <Calculator size={18} /> Abrir em nova guia
+                </button>
+              </div>
+            </div>
+            <div className="calculator-context">
+              <div>
+                <strong>Para empresarios</strong>
+                <span>Simule verba, meta de leads, taxa de conversao e retorno antes de investir.</span>
+              </div>
+              <div>
+                <strong>Para gestores</strong>
+                <span>Use os numeros da aba Otimizacao IA para defender escala, corte de verba ou novo teste.</span>
+              </div>
+              <div>
+                <strong>Fluxo recomendado</strong>
+                <span>Analise metricas, calcule meta viavel e registre a decisao na Central de Acoes.</span>
+              </div>
+            </div>
+            <div className="calculator-frame-wrap">
+              <iframe
+                className="calculator-frame"
+                src="https://calculadora.lucashabiel.com.br/"
+                title="Calculadora de campanhas"
+                loading="lazy"
+              />
+            </div>
+          </section>
+        ) : null}
+
         {activeView === "Relatorios" ? (
           <section className="panel table-panel report-panel">
             <div className="panel-head report-toolbar">
@@ -2767,7 +2807,7 @@ export default function Home() {
           </section>
         ) : null}
 
-        {!["Visao geral", "Clientes", "Campanhas", "Otimizacao IA", "Integracoes", "Relatorios", "Configuracoes"].includes(activeView) ? (
+        {!["Visao geral", "Clientes", "Campanhas", "Otimizacao IA", "Calculadora", "Integracoes", "Relatorios", "Configuracoes"].includes(activeView) ? (
           <section className="panel table-panel">
             <div className="panel-head">
               <div>

@@ -2187,6 +2187,59 @@ svg {
 }
 
 /* ---------------------------------------------------------------------- */
+/* Calculadora                                                            */
+/* ---------------------------------------------------------------------- */
+
+.calculator-panel {
+  min-height: calc(100vh - 108px);
+}
+
+.calculator-context {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.calculator-context div {
+  display: grid;
+  gap: 6px;
+  padding: 13px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface-soft);
+}
+
+.calculator-context strong {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 400;
+}
+
+.calculator-context span {
+  color: var(--text-dim);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.calculator-frame-wrap {
+  margin-top: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--surface-soft);
+}
+
+.calculator-frame {
+  display: block;
+  width: 100%;
+  height: min(820px, calc(100vh - 300px));
+  min-height: 620px;
+  border: 0;
+  background: #fff;
+}
+
+/* ---------------------------------------------------------------------- */
 /* Configuracoes                                                          */
 /* ---------------------------------------------------------------------- */
 
@@ -2301,6 +2354,7 @@ svg {
   .content-grid,
   .command-grid,
   .optimization-metric-grid,
+  .calculator-context,
   .report-metrics {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -2342,6 +2396,7 @@ svg {
   .command-grid,
   .command-grid.lower,
   .optimization-metric-grid,
+  .calculator-context,
   .report-metrics,
   .report-context-grid,
   .settings-form,
@@ -2373,6 +2428,11 @@ svg {
   .optimization-board-head {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .calculator-frame {
+    height: 680px;
+    min-height: 560px;
   }
 }
 

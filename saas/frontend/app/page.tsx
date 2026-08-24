@@ -17,6 +17,8 @@ import {
   LineChart,
   LogOut,
   Megaphone,
+  PanelLeftClose,
+  PanelLeftOpen,
   PlugZap,
   Search,
   Settings,
@@ -615,6 +617,7 @@ export default function Home() {
   const [apiMessage, setApiMessage] = useState("");
   const [apiLoading, setApiLoading] = useState(false);
   const [activeView, setActiveView] = useState("Visao geral");
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [selectedClientId, setSelectedClientId] = useState<string>("");
   const [clientSummary, setClientSummary] = useState<ClientSummary | null>(null);
   const [syncProgress, setSyncProgress] = useState<SyncProgress | null>(null);
@@ -1570,14 +1573,22 @@ export default function Home() {
   }
 
   return (
-    <main className="app-shell">
+    <main className={sidebarCollapsed ? "app-shell sidebar-collapsed" : "app-shell"}>
       <aside className="sidebar">
         <div className="sidebar-brand">
           <img className="brand-logo small" src="/creative-mark.png" alt="Creative Marketing" />
-          <div>
+          <div className="sidebar-brand-copy">
             <strong>Creative</strong>
             <span>Ads</span>
           </div>
+          <button
+            className="sidebar-toggle"
+            onClick={() => setSidebarCollapsed((collapsed) => !collapsed)}
+            title={sidebarCollapsed ? "Abrir menu" : "Recolher menu"}
+            aria-label={sidebarCollapsed ? "Abrir menu lateral" : "Recolher menu lateral"}
+          >
+            {sidebarCollapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
+          </button>
         </div>
 
         <nav className="nav-list">

@@ -91,6 +91,22 @@ button {
   cursor: pointer;
 }
 
+button,
+a,
+.nav-item,
+.metric-card,
+.panel,
+.ranking-row,
+.platform-row,
+.creative-row,
+.command-insight,
+.selectable-row,
+.asset-row,
+.report-format-tabs button,
+.segmented-control button {
+  -webkit-tap-highlight-color: transparent;
+}
+
 /* Ícones lucide-react: outline fino, sem preenchimento (identidade Creative) */
 svg {
   stroke-width: 1.75;
@@ -287,7 +303,14 @@ svg {
   padding: 0 20px;
   font-weight: 700;
   font-size: 0.92rem;
-  transition: transform 120ms ease, box-shadow 120ms ease, background 120ms ease, opacity 120ms ease;
+  transition:
+    transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    box-shadow 180ms ease,
+    border-color 180ms ease,
+    background 180ms ease,
+    color 180ms ease,
+    opacity 180ms ease;
+  will-change: transform;
 }
 
 .nav-item {
@@ -307,8 +330,20 @@ svg {
 }
 
 .primary-button:hover:not(:disabled) {
-  transform: translateY(-1px);
+  transform: translateY(-2px);
   box-shadow: 0 10px 24px rgba(10, 9, 8, 0.22);
+}
+
+.primary-button:active:not(:disabled),
+.secondary-button:active:not(:disabled),
+.ghost-button:active:not(:disabled),
+.link-button:active:not(:disabled),
+.icon-button:active:not(:disabled),
+.sidebar-toggle:active:not(:disabled),
+.nav-item:active:not(:disabled),
+.segmented-control button:active:not(:disabled),
+.report-format-tabs button:active:not(:disabled) {
+  transform: translateY(0) scale(0.98);
 }
 
 .auth-card .primary-button {
@@ -330,6 +365,7 @@ svg {
 
 .secondary-button:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.08);
+  transform: translateY(-1px);
 }
 
 .ghost-button {
@@ -343,6 +379,8 @@ svg {
 .ghost-button:hover:not(:disabled) {
   border-color: var(--text-faint);
   background: var(--surface-soft);
+  transform: translateY(-1px);
+  box-shadow: 0 10px 22px rgba(10, 9, 8, 0.08);
 }
 
 .ghost-button:disabled,
@@ -360,6 +398,18 @@ svg {
   place-items: center;
   background: var(--surface);
   color: var(--text);
+  transition:
+    transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    border-color 180ms ease,
+    background 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.icon-button:hover {
+  border-color: var(--text-faint);
+  background: var(--surface-soft);
+  transform: translateY(-1px);
+  box-shadow: 0 10px 22px rgba(10, 9, 8, 0.08);
 }
 
 .chevron {
@@ -379,6 +429,7 @@ svg {
 
 .link-button:hover {
   color: var(--flame-3);
+  transform: translateX(2px);
 }
 
 .form-message,
@@ -396,6 +447,11 @@ svg {
   min-height: 100vh;
   display: grid;
   grid-template-columns: 272px minmax(0, 1fr);
+  transition: grid-template-columns 260ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.app-shell.sidebar-collapsed {
+  grid-template-columns: 88px minmax(0, 1fr);
 }
 
 .sidebar {
@@ -409,6 +465,10 @@ svg {
   flex-direction: column;
   gap: 22px;
   border-right: 1px solid rgba(255, 255, 255, 0.05);
+  overflow: hidden;
+  transition:
+    padding 260ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    box-shadow 260ms ease;
 }
 
 .sidebar-brand {
@@ -417,6 +477,16 @@ svg {
   gap: 12px;
   padding: 6px 6px 18px;
   border-bottom: 1px solid var(--line-on-ink);
+}
+
+.sidebar-brand-copy {
+  min-width: 0;
+  opacity: 1;
+  transform: translateX(0);
+  transition:
+    opacity 180ms ease,
+    transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    width 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .sidebar-brand strong {
@@ -434,6 +504,29 @@ svg {
   font-weight: 600;
 }
 
+.sidebar-toggle {
+  width: 36px;
+  height: 36px;
+  margin-left: auto;
+  border: 1px solid var(--line-on-ink);
+  border-radius: var(--radius-sm);
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text-on-ink);
+  transition:
+    transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    background 180ms ease,
+    border-color 180ms ease;
+}
+
+.sidebar-toggle:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.28);
+  transform: translateY(-1px);
+}
+
 .nav-list {
   display: grid;
   gap: 3px;
@@ -445,16 +538,59 @@ svg {
   padding: 0 12px;
   background: transparent;
   color: var(--text-on-ink-dim);
+  position: relative;
+  overflow: hidden;
+  transition:
+    transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    background 180ms ease,
+    color 180ms ease,
+    padding 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.nav-item svg,
+.nav-item span {
+  position: relative;
+  z-index: 1;
+}
+
+.nav-item svg {
+  flex-shrink: 0;
+  transition: transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.nav-item::before {
+  content: "";
+  position: absolute;
+  inset: 7px auto 7px 8px;
+  width: 3px;
+  border-radius: var(--radius-pill);
+  background: var(--flame);
+  opacity: 0;
+  transform: scaleY(0.5);
+  transition:
+    opacity 180ms ease,
+    transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .nav-item:hover {
   background: rgba(255, 255, 255, 0.06);
   color: var(--text-on-ink);
+  transform: translateX(3px);
+}
+
+.nav-item:hover svg {
+  transform: scale(1.08);
 }
 
 .nav-item.active {
   background: #ffffff;
   color: var(--ink);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.24);
+}
+
+.nav-item.active::before {
+  opacity: 1;
+  transform: scaleY(1);
 }
 
 .sidebar-status {
@@ -466,6 +602,9 @@ svg {
   border-radius: var(--radius-sm);
   background: var(--positive-soft);
   color: #d8f3e6;
+  transition:
+    padding 220ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    justify-content 220ms ease;
 }
 
 .sidebar-status svg {
@@ -484,6 +623,56 @@ svg {
   font-size: 0.78rem;
 }
 
+.app-shell.sidebar-collapsed .sidebar {
+  padding-inline: 14px;
+}
+
+.app-shell.sidebar-collapsed .sidebar-brand {
+  justify-content: center;
+  gap: 0;
+  padding-inline: 0;
+}
+
+.app-shell.sidebar-collapsed .sidebar-brand-copy,
+.app-shell.sidebar-collapsed .nav-item span,
+.app-shell.sidebar-collapsed .sidebar-status div {
+  width: 0;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-8px);
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.app-shell.sidebar-collapsed .sidebar-toggle {
+  margin-left: 0;
+}
+
+.app-shell.sidebar-collapsed .nav-item {
+  justify-content: center;
+  padding-inline: 0;
+}
+
+.app-shell.sidebar-collapsed .nav-item:hover {
+  transform: translateX(0) translateY(-1px);
+}
+
+.app-shell.sidebar-collapsed .nav-item::before {
+  inset: auto 12px 5px;
+  width: auto;
+  height: 3px;
+  transform: scaleX(0.45);
+}
+
+.app-shell.sidebar-collapsed .nav-item.active::before {
+  transform: scaleX(1);
+}
+
+.app-shell.sidebar-collapsed .sidebar-status {
+  justify-content: center;
+  padding: 13px 0;
+}
+
 /* ---------------------------------------------------------------------- */
 /* Workspace                                                              */
 /* ---------------------------------------------------------------------- */
@@ -492,6 +681,7 @@ svg {
   padding: 30px 32px 48px;
   display: grid;
   gap: 22px;
+  transition: padding 220ms ease;
 }
 
 .topbar,
@@ -527,6 +717,14 @@ svg {
   background: var(--ink);
   color: var(--text-on-ink);
   box-shadow: var(--shadow-ink);
+  transition:
+    transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    box-shadow 220ms ease;
+}
+
+.hero-panel:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 34px 86px rgba(0, 0, 0, 0.52);
 }
 
 .hero-panel > div {
@@ -544,6 +742,9 @@ svg {
   opacity: 0.72;
   pointer-events: none;
   z-index: 0;
+  transition:
+    transform 420ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    opacity 220ms ease;
 }
 
 .hero-panel::before,
@@ -552,6 +753,24 @@ svg {
   position: absolute;
   border-radius: 50%;
   pointer-events: none;
+  transition:
+    transform 520ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    opacity 220ms ease;
+}
+
+.hero-panel:hover .hero-logo {
+  transform: translate3d(-8px, 4px, 0) scale(1.02);
+  opacity: 0.84;
+}
+
+.hero-panel:hover::before {
+  transform: rotate(8deg) scale(1.03);
+  opacity: 0.28;
+}
+
+.hero-panel:hover::after {
+  transform: rotate(-10deg) scale(1.04);
+  opacity: 0.22;
 }
 
 .hero-panel::before {
@@ -654,12 +873,27 @@ svg {
   gap: 8px;
   min-width: 26px;
   height: 200px;
+  transition: transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .trend-column > span {
   width: 100%;
   min-height: 8px;
   border-radius: 6px 6px 2px 2px;
+  transform-origin: bottom;
+  transition:
+    transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    filter 180ms ease,
+    opacity 180ms ease;
+}
+
+.trend-column:hover {
+  transform: translateY(-3px);
+}
+
+.trend-column:hover > span {
+  transform: scaleY(1.04);
+  filter: saturate(1.18);
 }
 
 .trend-spend {
@@ -736,6 +970,16 @@ svg {
   border: 1px solid rgba(255, 255, 255, 0.09);
   border-radius: var(--radius-sm);
   background: rgba(255, 255, 255, 0.06);
+  transition:
+    transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    border-color 180ms ease,
+    background 180ms ease;
+}
+
+.command-insight:hover {
+  transform: translateY(-2px);
+  border-color: rgba(245, 166, 35, 0.28);
+  background: rgba(255, 255, 255, 0.09);
 }
 
 .command-insight.green {
@@ -779,6 +1023,21 @@ svg {
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
   background: var(--surface-soft);
+  transition:
+    transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    border-color 180ms ease,
+    background 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.ranking-row:hover,
+.platform-row:hover,
+.creative-row:hover,
+.reasoning-chain div:hover {
+  transform: translateY(-2px);
+  border-color: rgba(232, 72, 28, 0.24);
+  background: #fff;
+  box-shadow: 0 14px 30px rgba(10, 9, 8, 0.08);
 }
 
 .ranking-row {
@@ -848,6 +1107,14 @@ svg {
   height: 30px;
   border-radius: 6px;
   background: #0f766e;
+  transition:
+    transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    filter 180ms ease;
+}
+
+.creative-row:hover .heat-cells i {
+  transform: scaleY(1.08);
+  filter: saturate(1.18);
 }
 
 .reasoning-chain {
@@ -889,6 +1156,11 @@ svg {
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--radius-card);
+  transition:
+    transform 200ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    box-shadow 200ms ease,
+    border-color 200ms ease,
+    background 200ms ease;
 }
 
 .metric-card {
@@ -900,6 +1172,17 @@ svg {
   min-height: 132px;
   border-top: 3px solid var(--line);
   box-shadow: var(--shadow-light);
+}
+
+.metric-card:hover {
+  transform: translateY(-4px);
+  border-color: rgba(232, 72, 28, 0.22);
+  box-shadow: 0 18px 42px rgba(10, 9, 8, 0.1);
+}
+
+.panel:hover {
+  border-color: rgba(232, 72, 28, 0.16);
+  box-shadow: 0 16px 36px rgba(10, 9, 8, 0.06);
 }
 
 .metric-card span,
@@ -1087,6 +1370,20 @@ svg {
   justify-content: space-between;
   gap: 14px;
   padding: 13px 14px;
+  transition:
+    transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    border-color 180ms ease,
+    background 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.asset-row:hover,
+.compact-list div:hover,
+.channel-item:hover {
+  transform: translateY(-2px);
+  border-color: rgba(232, 72, 28, 0.2);
+  background: #fff;
+  box-shadow: 0 12px 26px rgba(10, 9, 8, 0.07);
 }
 
 .asset-row p,
@@ -1103,6 +1400,11 @@ svg {
 .compact-list div,
 .channel-item {
   padding: 13px 14px;
+  transition:
+    transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    border-color 180ms ease,
+    background 180ms ease,
+    box-shadow 180ms ease;
 }
 
 .compact-muted {
@@ -1177,6 +1479,11 @@ svg {
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
   background: var(--surface-soft);
+  transition:
+    transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    border-color 180ms ease,
+    background 180ms ease,
+    box-shadow 180ms ease;
 }
 
 .campaign-performance-row.header {
@@ -1189,6 +1496,15 @@ svg {
   letter-spacing: 0.04em;
   text-transform: uppercase;
   padding: 0 12px;
+  box-shadow: none;
+  transform: none;
+}
+
+.campaign-performance-row:not(.header):hover {
+  transform: translateY(-2px);
+  border-color: rgba(232, 72, 28, 0.22);
+  background: #fff;
+  box-shadow: 0 14px 30px rgba(10, 9, 8, 0.08);
 }
 
 .campaign-performance-row span,
@@ -1739,6 +2055,16 @@ svg {
   background: transparent;
   color: var(--text-dim);
   font-weight: 700;
+  transition:
+    transform 160ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    background 160ms ease,
+    color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.segmented-control button:hover {
+  color: var(--text);
+  transform: translateY(-1px);
 }
 
 .segmented-control button.active {
@@ -1800,6 +2126,11 @@ svg {
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
   background: var(--surface-soft);
+  transition:
+    transform 180ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    border-color 180ms ease,
+    background 180ms ease,
+    box-shadow 180ms ease;
 }
 
 .data-row.header {
@@ -1811,6 +2142,15 @@ svg {
   font-weight: 800;
   letter-spacing: 0.04em;
   text-transform: uppercase;
+  box-shadow: none;
+  transform: none;
+}
+
+.data-row:not(.header):hover {
+  transform: translateY(-2px);
+  border-color: rgba(232, 72, 28, 0.2);
+  background: #fff;
+  box-shadow: 0 12px 26px rgba(10, 9, 8, 0.07);
 }
 
 .data-row span {
@@ -1865,7 +2205,13 @@ svg {
   height: 100%;
   border-radius: inherit;
   background: var(--flame);
-  transition: width 260ms ease;
+  transition:
+    width 260ms ease,
+    filter 180ms ease;
+}
+
+.sync-progress:hover .progress-track span {
+  filter: saturate(1.24);
 }
 
 .sync-progress.success .progress-track span {
@@ -1946,6 +2292,18 @@ svg {
   color: var(--text-dim);
   font-weight: 800;
   cursor: pointer;
+  transition:
+    transform 160ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    border-color 160ms ease,
+    background 160ms ease,
+    color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.report-format-tabs button:hover {
+  transform: translateY(-1px);
+  border-color: var(--text-faint);
+  color: var(--text);
 }
 
 .report-format-tabs button.active {
@@ -2423,9 +2781,59 @@ svg {
     grid-template-columns: 1fr;
   }
 
+  .app-shell.sidebar-collapsed {
+    grid-template-columns: 1fr;
+  }
+
   .sidebar {
     position: static;
     height: auto;
+  }
+
+  .app-shell.sidebar-collapsed .sidebar {
+    padding: 22px 16px;
+  }
+
+  .app-shell.sidebar-collapsed .sidebar-brand {
+    justify-content: flex-start;
+    gap: 12px;
+    padding: 6px 6px 18px;
+  }
+
+  .app-shell.sidebar-collapsed .sidebar-brand-copy,
+  .app-shell.sidebar-collapsed .nav-item span,
+  .app-shell.sidebar-collapsed .sidebar-status div {
+    width: auto;
+    opacity: 1;
+    pointer-events: auto;
+    transform: none;
+    overflow: visible;
+    white-space: normal;
+  }
+
+  .app-shell.sidebar-collapsed .sidebar-toggle {
+    margin-left: auto;
+  }
+
+  .app-shell.sidebar-collapsed .nav-item {
+    justify-content: flex-start;
+    padding: 0 12px;
+  }
+
+  .app-shell.sidebar-collapsed .nav-item::before {
+    inset: 7px auto 7px 8px;
+    width: 3px;
+    height: auto;
+    transform: scaleY(0.5);
+  }
+
+  .app-shell.sidebar-collapsed .nav-item.active::before {
+    transform: scaleY(1);
+  }
+
+  .app-shell.sidebar-collapsed .sidebar-status {
+    justify-content: flex-start;
+    padding: 14px;
   }
 
   .nav-list {

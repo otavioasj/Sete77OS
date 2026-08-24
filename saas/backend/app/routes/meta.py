@@ -547,7 +547,7 @@ def meta_client_summary(
     )
     metrics_query = (
         admin.table("campaign_daily_metrics")
-        .select("campaign_external_id,spend,impressions,reach,clicks,inline_link_clicks,leads,metric_date,raw_json")
+        .select("campaign_external_id,campaign_name,campaign,platform,ad_group,ad_name,spend,impressions,reach,clicks,inline_link_clicks,leads,metric_date,raw_json")
         .eq("client_id", client_id)
     )
     period_since, period_until = _period_bounds(date_preset, since, until)

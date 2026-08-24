@@ -1461,6 +1461,30 @@ svg {
   margin-top: 22px;
 }
 
+.report-format-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.report-format-tabs button {
+  min-height: 34px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-dim);
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.report-format-tabs button.active {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: var(--text-on-ink);
+}
+
 .report-cover {
   display: flex;
   align-items: flex-start;
@@ -1608,6 +1632,89 @@ svg {
   margin: 0;
   color: var(--text-dim);
   line-height: 1.45;
+}
+
+.report-insight-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.report-insight-grid div {
+  padding: 13px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+
+.report-insight-grid span {
+  display: block;
+  color: var(--text-dim);
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
+.report-insight-grid strong {
+  display: block;
+  margin-top: 6px;
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  font-weight: 400;
+  overflow-wrap: anywhere;
+}
+
+.report-insight-grid p {
+  margin: 7px 0 0;
+  color: var(--text-dim);
+  line-height: 1.45;
+}
+
+.report-data-table {
+  display: grid;
+  gap: 8px;
+  overflow-x: auto;
+}
+
+.report-data-row {
+  display: grid;
+  grid-template-columns: minmax(220px, 1.8fr) repeat(5, minmax(105px, 1fr));
+  gap: 10px;
+  align-items: center;
+  min-width: 840px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+
+.report-data-table.leads .report-data-row {
+  grid-template-columns: minmax(90px, 0.8fr) minmax(220px, 1.8fr) repeat(4, minmax(105px, 1fr));
+}
+
+.report-data-row.header {
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 0.75rem;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.report-data-row strong {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.report-data-row small {
+  color: var(--text-dim);
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.report-data-row span {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 /* ---------------------------------------------------------------------- */

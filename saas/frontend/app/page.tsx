@@ -10,6 +10,7 @@ import {
   CheckCircle2,
   ChevronRight,
   CreditCard,
+  FileDown,
   Gauge,
   LayoutDashboard,
   LineChart,
@@ -73,10 +74,17 @@ type ClientSummary = {
   campaigns: { id: string; name: string; status?: string; effective_status?: string; objective?: string; meta_campaign_id?: string }[];
   metrics: {
     campaign_external_id?: string | null;
+    campaign_name?: string | null;
+    campaign?: string | null;
+    platform?: string | null;
+    ad_group?: string | null;
+    ad_name?: string | null;
+    metric_date?: string | null;
     spend: number;
     leads: number;
     reach: number;
     clicks: number;
+    inline_link_clicks?: number;
     impressions: number;
     raw_json?: { actions?: { action_type?: string; value?: string | number }[] } | null;
   }[];
@@ -145,6 +153,25 @@ type ActionItem = {
   updated_at: string;
 };
 
+type ReportType = "executive" | "leads" | "campaigns" | "creative" | "platform";
+
+type ReportTableRow = {
+  label: string;
+  secondary?: string;
+  spend: number;
+  leads: number;
+  results: number;
+  resultLabel: string;
+  clicks: number;
+  impressions: number;
+  costPerResult: number;
+  cpl: number;
+  ctr: number;
+  cpm: number;
+};
+
+type MetricRow = ClientSummary["metrics"][number];
+
 const datePresetLabels: Record<DatePreset, string> = {
   last_30d: "Ultimos 30 dias",
   last_7d: "Ultimos 7 dias",
@@ -152,6 +179,14 @@ const datePresetLabels: Record<DatePreset, string> = {
   today: "Hoje",
   yesterday: "Ontem",
   custom: "Personalizado",
+};
+
+const reportTypeLabels: Record<ReportType, string> = {
+  executive: "Executivo",
+  leads: "Leads",
+  campaigns: "Campanhas",
+  creative: "Criativos",
+  platform: "Plataformas",
 };
 
 const metrics: Metric[] = [
@@ -239,6 +274,125 @@ function calculateTotals(rows: ClientSummary["metrics"]): ClientSummary["totals"
     cpm: impressions ? (spend / impressions) * 1000 : 0,
     ctr: impressions ? (clicks / impressions) * 100 : 0,
   };
+}
+
+function formatCurrency(value: number) {
+  return numberValue(value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
+function formatNumber(value: number) {
+  return numberValue(value).toLocaleString("pt-BR");
+}
+
+function formatPercent(value: number) {
+  return `${numberValue(value).toFixed(2)}%`;
+}
+
+function excelNumber(value: number) {
+  return numberValue(value).toFixed(2).replace(".", ",");
+}
+
+function csvEscape(value: string | number | null | undefined) {
+  const text = String(value ?? "");
+  return `"${text.replace(/"/g, '""')}"`;
+}
+
+function downloadTextFile(fileName: string, content: string, mimeType = "text/csv;charset=utf-8") {
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = fileName;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+function campaignNameForMetric(row: MetricRow, campaigns: ClientSummary["campaigns"]) {
+  return (
+    row.campaign_name ||
+    row.campaign ||
+    campaigns.find((campaign) => campaign.meta_campaign_id === row.campaign_external_id)?.name ||
+    row.campaign_external_id ||
+    "Campanha sem nome"
+  );
+}
+
+function aggregateMetricRows(
+  rows: ClientSummary["metrics"],
+  groupLabel: (row: MetricRow) => string,
+  secondaryLabel?: (row: MetricRow) => string
+): ReportTableRow[] {
+  const grouped = new Map<string, { label: string; secondary?: string; rows: ClientSummary["metrics"] }>();
+  rows.forEach((row) => {
+    const label = groupLabel(row).trim() || "Nao informado";
+    const secondary = secondaryLabel?.(row).trim();
+    const key = `${label}::${secondary ?? ""}`;
+    const current = grouped.get(key) ?? { label, secondary, rows: [] };
+    current.rows.push(row);
+    grouped.set(key, current);
+  });
+
+  return Array.from(grouped.values())
+    .map((group) => {
+      const totals = calculateTotals(group.rows);
+      return {
+        label: group.label,
+        secondary: group.secondary,
+        spend: totals.spend,
+        leads: totals.leads,
+        results: totals.metaResults,
+        resultLabel: totals.resultLabel,
+        clicks: totals.clicks,
+        impressions: totals.impressions,
+        costPerResult: totals.costPerResult,
+        cpl: totals.cpl,
+        ctr: totals.ctr,
+        cpm: totals.cpm,
+      };
+    })
+    .sort((a, b) => b.results - a.results || b.spend - a.spend);
+}
+
+function reportTableToCsv(rows: ReportTableRow[]) {
+  const header = ["Nome", "Detalhe", "Investimento", "Leads", "Resultados", "Tipo de resultado", "Cliques", "Impressoes", "Custo por resultado", "CPL", "CTR", "CPM"];
+  const body = rows.map((row) => [
+    row.label,
+    row.secondary ?? "",
+    excelNumber(row.spend),
+    row.leads,
+    row.results,
+    row.resultLabel,
+    row.clicks,
+    row.impressions,
+    excelNumber(row.costPerResult),
+    excelNumber(row.cpl),
+    excelNumber(row.ctr),
+    excelNumber(row.cpm),
+  ]);
+  return [header, ...body].map((line) => line.map(csvEscape).join(";")).join("\n");
+}
+
+function leadsReportToCsv(rows: ClientSummary["metrics"], campaigns: ClientSummary["campaigns"]) {
+  const header = ["Data", "Campanha", "Leads", "Conversas", "Resultados", "Investimento", "Custo por resultado", "Cliques", "Impressoes"];
+  const body = rows
+    .map((row) => {
+      const totals = calculateTotals([row]);
+      return [
+        row.metric_date ?? "",
+        campaignNameForMetric(row, campaigns),
+        row.leads,
+        totals.conversations,
+        totals.metaResults,
+        excelNumber(row.spend),
+        excelNumber(totals.costPerResult),
+        row.clicks,
+        row.impressions,
+      ];
+    })
+    .sort((a, b) => String(a[0]).localeCompare(String(b[0])));
+  return [header, ...body].map((line) => line.map(csvEscape).join(";")).join("\n");
 }
 
 function campaignRecommendation(totals: ClientSummary["totals"], status?: string): { text: string; tone: CampaignPerformance["tone"] } {
@@ -359,6 +513,7 @@ export default function Home() {
   const [datePreset, setDatePreset] = useState<DatePreset>("last_30d");
   const [customSince, setCustomSince] = useState("");
   const [customUntil, setCustomUntil] = useState("");
+  const [reportType, setReportType] = useState<ReportType>("executive");
   const [aiRecommendation, setAiRecommendation] = useState<AiRecommendation | null>(null);
   const [aiRecommendationLoading, setAiRecommendationLoading] = useState(false);
   const [aiRecommendationGenerating, setAiRecommendationGenerating] = useState(false);
@@ -435,6 +590,18 @@ export default function Home() {
     return calculateTotals(clientSummary.metrics.filter((row) => selectedIds.has(row.campaign_external_id ?? "")));
   }, [campaignSearch, campaignStatusFilter, clientSummary, filteredCampaigns, selectedCampaignIds]);
 
+  const displayedMetricRows = useMemo(() => {
+    if (!clientSummary) return [];
+    const selectedIds = new Set(selectedCampaignIds);
+    if (!selectedIds.size || selectedIds.size === clientSummary.campaigns.length) {
+      const hasCampaignFilter = campaignStatusFilter !== "all" || Boolean(campaignSearch.trim());
+      if (!hasCampaignFilter) return clientSummary.metrics;
+      const visibleCampaignIds = new Set(filteredCampaigns.map((campaign) => campaign.meta_campaign_id).filter(Boolean));
+      return clientSummary.metrics.filter((row) => visibleCampaignIds.has(row.campaign_external_id ?? ""));
+    }
+    return clientSummary.metrics.filter((row) => selectedIds.has(row.campaign_external_id ?? ""));
+  }, [campaignSearch, campaignStatusFilter, clientSummary, filteredCampaigns, selectedCampaignIds]);
+
   const campaignRows = useMemo<CampaignPerformance[]>(() => {
     if (!clientSummary) return [];
     return filteredCampaigns.map((campaign) => {
@@ -444,6 +611,36 @@ export default function Home() {
       return { ...campaign, totals, recommendation: recommendation.text, tone: recommendation.tone };
     });
   }, [clientSummary, filteredCampaigns]);
+
+  const reportRows = useMemo<ReportTableRow[]>(() => {
+    if (!clientSummary) return [];
+    if (reportType === "campaigns") {
+      return aggregateMetricRows(displayedMetricRows, (row) => campaignNameForMetric(row, clientSummary.campaigns));
+    }
+    if (reportType === "creative") {
+      return aggregateMetricRows(
+        displayedMetricRows,
+        (row) => row.ad_name || "Criativo nao informado",
+        (row) => campaignNameForMetric(row, clientSummary.campaigns)
+      );
+    }
+    if (reportType === "platform") {
+      return aggregateMetricRows(displayedMetricRows, (row) => (row.platform === "meta_ads" ? "Meta Ads" : row.platform || "Plataforma nao informada"));
+    }
+    return [];
+  }, [clientSummary, displayedMetricRows, reportType]);
+
+  const reportInsight = useMemo(() => {
+    if (!reportRows.length) return null;
+    const bestByResult = reportRows[0];
+    const inefficientRows = reportRows.filter((row) => row.spend > 0 && (!row.results || row.costPerResult > 0));
+    const worstByResult = [...inefficientRows].sort((a, b) => {
+      if (!a.results && b.results) return -1;
+      if (a.results && !b.results) return 1;
+      return b.costPerResult - a.costPerResult || b.spend - a.spend;
+    })[0];
+    return { bestByResult, worstByResult };
+  }, [reportRows]);
 
   const aiPriorities = useMemo(() => buildAiPriorities(campaignRows), [campaignRows]);
 
@@ -651,6 +848,41 @@ export default function Home() {
     } finally {
       setSettingsSaving(false);
     }
+  }
+
+  function downloadCurrentReport() {
+    if (!clientSummary || !displayedTotals) return;
+    const safeClient = clientSummary.client.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+    const safePeriod = periodKey().replace(/[^a-z0-9:-]+/gi, "-");
+    const fileName = `relatorio-${safeClient || "cliente"}-${reportType}-${safePeriod}.csv`;
+    let csv = "";
+
+    if (reportType === "executive") {
+      const rows: ReportTableRow[] = [
+        {
+          label: "Resumo executivo",
+          secondary: periodLabel(),
+          spend: displayedTotals.spend,
+          leads: displayedTotals.leads,
+          results: displayedTotals.metaResults,
+          resultLabel: displayedTotals.resultLabel,
+          clicks: displayedTotals.clicks,
+          impressions: displayedTotals.impressions,
+          costPerResult: displayedTotals.costPerResult,
+          cpl: displayedTotals.cpl,
+          ctr: displayedTotals.ctr,
+          cpm: displayedTotals.cpm,
+        },
+        ...aggregateMetricRows(displayedMetricRows, (row) => campaignNameForMetric(row, clientSummary.campaigns)).slice(0, 20),
+      ];
+      csv = reportTableToCsv(rows);
+    } else if (reportType === "leads") {
+      csv = leadsReportToCsv(displayedMetricRows, clientSummary.campaigns);
+    } else {
+      csv = reportTableToCsv(reportRows);
+    }
+
+    downloadTextFile(fileName, `\uFEFF${csv}`);
   }
 
   async function loadClientSummary(clientId: string, preset = datePreset): Promise<ClientSummary | null> {
@@ -1721,12 +1953,15 @@ export default function Home() {
           <section className="panel table-panel report-panel">
             <div className="panel-head report-toolbar">
               <div>
-                <p className="eyebrow">Relatorio executivo</p>
+                <p className="eyebrow">Relatorios</p>
                 <h3>{clientSummary ? clientSummary.client.name : "Selecione um cliente"}</h3>
               </div>
               <div className="topbar-actions">
                 <button className="ghost-button" onClick={() => selectedClientId && syncClient(selectedClientId)} disabled={apiLoading || !selectedClientId}>
                   <Activity size={18} /> Sincronizar
+                </button>
+                <button className="ghost-button" onClick={downloadCurrentReport} disabled={!clientSummary}>
+                  <FileDown size={18} /> Baixar Excel
                 </button>
                 <button className="ghost-button" onClick={() => window.print()} disabled={!clientSummary}>
                   <BarChart3 size={18} /> Imprimir
@@ -1744,6 +1979,17 @@ export default function Home() {
                 </select>
               </label>
               {periodControls}
+            </div>
+            <div className="report-format-tabs no-print">
+              {(Object.keys(reportTypeLabels) as ReportType[]).map((type) => (
+                <button
+                  className={reportType === type ? "active" : ""}
+                  key={type}
+                  onClick={() => setReportType(type)}
+                >
+                  {reportTypeLabels[type]}
+                </button>
+              ))}
             </div>
             {apiMessage ? <p className="form-message no-print">{apiMessage}</p> : null}
             {!clientSummary || !displayedTotals ? (
@@ -1778,89 +2024,170 @@ export default function Home() {
                   </div>
                 </div>
 
-                <section className="report-section">
-                  <div className="report-section-head">
-                    <p className="eyebrow">Metas do cliente</p>
-                    <h3>Contexto usado na leitura</h3>
-                  </div>
-                  <div className="report-context-grid">
-                    <div>
-                      <span>Orcamento mensal</span>
-                      <strong>{(clientSummary.client.monthly_budget ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</strong>
-                    </div>
-                    <div>
-                      <span>CPL alvo</span>
-                      <strong>{(clientSummary.client.target_cpl ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</strong>
-                    </div>
-                    <div>
-                      <span>Responsavel</span>
-                      <strong>{clientSummary.client.account_manager || "-"}</strong>
-                    </div>
-                  </div>
-                  <div className="report-context-copy">
-                    <div>
-                      <strong>Objetivo comercial</strong>
-                      <p>{clientSummary.client.business_goal || "Nao informado."}</p>
-                    </div>
-                    <div>
-                      <strong>Lead qualificado</strong>
-                      <p>{clientSummary.client.qualified_lead_definition || "Nao informado."}</p>
-                    </div>
-                  </div>
-                </section>
-
-                <section className="report-section">
-                  <div className="report-section-head">
-                    <p className="eyebrow">Resumo</p>
-                    <h3>Leitura do periodo</h3>
-                  </div>
-                  {aiRecommendation ? (
-                    <div className="report-copy">
-                      {aiRecommendation.content.split(/\n{2,}/).map((paragraph, index) => (
-                        <p key={index}>{paragraph}</p>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="muted">Gere o plano de acao na aba Otimizacao IA para incluir uma leitura consultiva neste relatorio.</p>
-                  )}
-                </section>
-
-                <section className="report-section">
-                  <div className="report-section-head">
-                    <p className="eyebrow">Trabalho executado</p>
-                    <h3>Acoes e decisoes</h3>
-                  </div>
-                  <div className="report-action-grid">
-                    {actionItems.map((item) => (
-                      <div className="report-action-item" key={item.id}>
+                {reportType === "executive" ? (
+                  <>
+                    <section className="report-section">
+                      <div className="report-section-head">
+                        <p className="eyebrow">Metas do cliente</p>
+                        <h3>Contexto usado na leitura</h3>
+                      </div>
+                      <div className="report-context-grid">
                         <div>
-                          <strong>{item.title}</strong>
-                          <span>{item.campaign_name}</span>
+                          <span>Orcamento mensal</span>
+                          <strong>{formatCurrency(clientSummary.client.monthly_budget ?? 0)}</strong>
                         </div>
-                        <p>{item.action}</p>
-                        <div className={`action-status ${item.status}`}>{actionStatusLabel(item.status)}</div>
+                        <div>
+                          <span>CPL alvo</span>
+                          <strong>{formatCurrency(clientSummary.client.target_cpl ?? 0)}</strong>
+                        </div>
+                        <div>
+                          <span>Responsavel</span>
+                          <strong>{clientSummary.client.account_manager || "-"}</strong>
+                        </div>
                       </div>
-                    ))}
-                    {!actionItems.length ? <p className="muted">Nenhuma acao registrada para este periodo.</p> : null}
-                  </div>
-                </section>
+                      <div className="report-context-copy">
+                        <div>
+                          <strong>Objetivo comercial</strong>
+                          <p>{clientSummary.client.business_goal || "Nao informado."}</p>
+                        </div>
+                        <div>
+                          <strong>Lead qualificado</strong>
+                          <p>{clientSummary.client.qualified_lead_definition || "Nao informado."}</p>
+                        </div>
+                      </div>
+                    </section>
 
-                <section className="report-section">
-                  <div className="report-section-head">
-                    <p className="eyebrow">Campanhas</p>
-                    <h3>Principais leituras</h3>
-                  </div>
-                  <div className="report-campaign-list">
-                    {campaignRows.slice(0, 8).map((campaign) => (
-                      <div className="report-campaign-item" key={campaign.id}>
-                        <strong>{campaign.name}</strong>
-                        <span>{campaign.totals.spend.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} - {campaign.totals.metaResults} {campaign.totals.resultLabel}</span>
-                        <small>{campaign.recommendation}</small>
+                    <section className="report-section">
+                      <div className="report-section-head">
+                        <p className="eyebrow">Resumo</p>
+                        <h3>Leitura do periodo</h3>
                       </div>
-                    ))}
-                    {!campaignRows.length ? <p className="muted">Nenhuma campanha encontrada para o filtro atual.</p> : null}
-                  </div>
-                </section>
+                      {aiRecommendation ? (
+                        <div className="report-copy">
+                          {aiRecommendation.content.split(/\n{2,}/).map((paragraph, index) => (
+                            <p key={index}>{paragraph}</p>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="muted">Gere o plano de acao na aba Otimizacao IA para incluir uma leitura consultiva neste relatorio.</p>
+                      )}
+                    </section>
+
+                    <section className="report-section">
+                      <div className="report-section-head">
+                        <p className="eyebrow">Trabalho executado</p>
+                        <h3>Acoes e decisoes</h3>
+                      </div>
+                      <div className="report-action-grid">
+                        {actionItems.map((item) => (
+                          <div className="report-action-item" key={item.id}>
+                            <div>
+                              <strong>{item.title}</strong>
+                              <span>{item.campaign_name}</span>
+                            </div>
+                            <p>{item.action}</p>
+                            <div className={`action-status ${item.status}`}>{actionStatusLabel(item.status)}</div>
+                          </div>
+                        ))}
+                        {!actionItems.length ? <p className="muted">Nenhuma acao registrada para este periodo.</p> : null}
+                      </div>
+                    </section>
+
+                    <section className="report-section">
+                      <div className="report-section-head">
+                        <p className="eyebrow">Campanhas</p>
+                        <h3>Principais leituras</h3>
+                      </div>
+                      <div className="report-campaign-list">
+                        {campaignRows.slice(0, 8).map((campaign) => (
+                          <div className="report-campaign-item" key={campaign.id}>
+                            <strong>{campaign.name}</strong>
+                            <span>{formatCurrency(campaign.totals.spend)} - {campaign.totals.metaResults} {campaign.totals.resultLabel}</span>
+                            <small>{campaign.recommendation}</small>
+                          </div>
+                        ))}
+                        {!campaignRows.length ? <p className="muted">Nenhuma campanha encontrada para o filtro atual.</p> : null}
+                      </div>
+                    </section>
+                  </>
+                ) : (
+                  <section className="report-section">
+                    <div className="report-section-head">
+                      <p className="eyebrow">{reportTypeLabels[reportType]}</p>
+                      <h3>
+                        {reportType === "leads" ? "Leads gerados por dia e campanha" : "O que puxou mais e menos resultado"}
+                      </h3>
+                    </div>
+                    {reportType !== "leads" && reportInsight ? (
+                      <div className="report-insight-grid">
+                        <div>
+                          <span>Mais puxou resultado</span>
+                          <strong>{reportInsight.bestByResult.label}</strong>
+                          <p>{formatNumber(reportInsight.bestByResult.results)} {reportInsight.bestByResult.resultLabel} com {formatCurrency(reportInsight.bestByResult.spend)} investidos.</p>
+                        </div>
+                        <div>
+                          <span>Menos eficiente</span>
+                          <strong>{reportInsight.worstByResult?.label ?? "-"}</strong>
+                          <p>{reportInsight.worstByResult ? `${formatNumber(reportInsight.worstByResult.results)} resultados a ${formatCurrency(reportInsight.worstByResult.costPerResult)}` : "Sem base suficiente no periodo."}</p>
+                        </div>
+                      </div>
+                    ) : null}
+                    {reportType === "creative" && reportRows.every((row) => row.label === "Criativo nao informado") ? (
+                      <p className="muted">A sincronizacao atual esta em nivel de campanha. Para performance real de criativo/modelo, o proximo passo e ativar insights por anuncio na integracao da Meta.</p>
+                    ) : null}
+                    {reportType === "leads" ? (
+                      <div className="report-data-table leads">
+                        <div className="report-data-row header">
+                          <span>Data</span>
+                          <span>Campanha</span>
+                          <span>Leads</span>
+                          <span>Conversas</span>
+                          <span>Investimento</span>
+                          <span>Custo</span>
+                        </div>
+                        {displayedMetricRows.map((row, index) => {
+                          const totals = calculateTotals([row]);
+                          return (
+                            <div className="report-data-row" key={`${row.campaign_external_id}-${row.metric_date}-${index}`}>
+                              <span>{row.metric_date ?? "-"}</span>
+                              <strong>{campaignNameForMetric(row, clientSummary.campaigns)}</strong>
+                              <span>{formatNumber(row.leads)}</span>
+                              <span>{formatNumber(totals.conversations)}</span>
+                              <span>{formatCurrency(row.spend)}</span>
+                              <span>{formatCurrency(totals.costPerResult)}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="report-data-table">
+                        <div className="report-data-row header">
+                          <span>Nome</span>
+                          <span>Investimento</span>
+                          <span>Leads</span>
+                          <span>Resultados</span>
+                          <span>Custo</span>
+                          <span>CTR</span>
+                        </div>
+                        {reportRows.map((row) => (
+                          <div className="report-data-row" key={`${row.label}-${row.secondary ?? ""}`}>
+                            <strong>
+                              {row.label}
+                              {row.secondary ? <small>{row.secondary}</small> : null}
+                            </strong>
+                            <span>{formatCurrency(row.spend)}</span>
+                            <span>{formatNumber(row.leads)}</span>
+                            <span>{formatNumber(row.results)} {row.resultLabel}</span>
+                            <span>{formatCurrency(row.costPerResult)}</span>
+                            <span>{formatPercent(row.ctr)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {reportType !== "leads" && !reportRows.length ? <p className="muted">Nenhum dado encontrado para este formato no periodo.</p> : null}
+                    {reportType === "leads" && !displayedMetricRows.length ? <p className="muted">Nenhum lead encontrado para este periodo.</p> : null}
+                  </section>
+                )}
               </div>
             )}
           </section>

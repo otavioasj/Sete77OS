@@ -1221,8 +1221,8 @@ export default function Home() {
     return (
       <main className="auth-shell">
         <section className="auth-brand">
-          <div className="brand-mark">C</div>
-          <p className="eyebrow">Creative Campaign OS</p>
+          <img className="brand-logo" src="/creative-mark.png" alt="Creative Marketing" />
+          <p className="eyebrow">CREATIVE ADS</p>
           <h1>O painel de decisao para gestor de trafego vender mais tempo.</h1>
           <p className="auth-copy">
             Conecte Meta Ads, Google Ads, WhatsApp e IA em um fluxo simples: diagnostico, recomendacao, relatorio e acao.
@@ -1269,10 +1269,10 @@ export default function Home() {
     <main className="app-shell">
       <aside className="sidebar">
         <div className="sidebar-brand">
-          <div className="brand-mark small">C</div>
+          <img className="brand-logo small" src="/creative-mark.png" alt="Creative Marketing" />
           <div>
             <strong>Creative</strong>
-            <span>Campaign OS</span>
+            <span>Ads</span>
           </div>
         </div>
 
@@ -1314,6 +1314,7 @@ export default function Home() {
         {activeView === "Visao geral" ? (
           <>
           <section className="hero-panel">
+          <img className="hero-logo" src="/creative-logo.png" alt="Creative Marketing" />
           <div>
             <p className="eyebrow">Prioridade da semana</p>
             <h2>Conectar Meta Ads e transformar dados em decisoes diarias.</h2>
@@ -1998,11 +1999,11 @@ export default function Home() {
               <div className="report-document">
                 <div className="report-cover">
                   <div>
-                    <p className="eyebrow">Creative Campaign OS</p>
+                    <p className="eyebrow">CREATIVE ADS</p>
                     <h2>{clientSummary.client.name}</h2>
                     <span>{periodLabel()} - gerado em {new Date().toLocaleDateString("pt-BR")}</span>
                   </div>
-                  <div className="brand-mark small">C</div>
+                  <img className="brand-logo small" src="/creative-mark.png" alt="Creative Marketing" />
                 </div>
 
                 <div className="report-metrics">

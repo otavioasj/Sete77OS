@@ -20,8 +20,13 @@ const poppins = Poppins({
 });
 
 export const metadata: Metadata = {
-  title: "Creative Campaign OS",
-  description: "SaaS de otimizacao de campanhas da Creative Marketing"
+  title: "CREATIVE ADS",
+  description: "SaaS de otimizacao de campanhas da Creative Marketing",
+  icons: {
+    icon: "/favicon.ico",
+    shortcut: "/favicon.ico",
+    apple: "/icon.png"
+  }
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

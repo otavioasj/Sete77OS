@@ -227,7 +227,8 @@ svg {
 /* Marca / tipografia utilitária                                          */
 /* ---------------------------------------------------------------------- */
 
-.brand-mark {
+.brand-mark,
+.brand-logo {
   width: 60px;
   height: 60px;
   display: grid;
@@ -240,7 +241,14 @@ svg {
   font-size: 1.7rem;
 }
 
-.brand-mark.small {
+.brand-logo {
+  display: block;
+  object-fit: cover;
+  background: #000;
+}
+
+.brand-mark.small,
+.brand-logo.small {
   width: 42px;
   height: 42px;
   border-radius: 9px;
@@ -526,6 +534,18 @@ svg {
   z-index: 1;
 }
 
+.hero-logo {
+  position: absolute;
+  top: 20px;
+  right: 28px;
+  width: min(260px, 28vw);
+  max-height: 170px;
+  object-fit: contain;
+  opacity: 0.72;
+  pointer-events: none;
+  z-index: 0;
+}
+
 .hero-panel::before,
 .hero-panel::after {
   content: "";
@@ -542,7 +562,7 @@ svg {
   background: conic-gradient(from 200deg, var(--flame-1), var(--flame-2) 40%, var(--flame-3) 65%, transparent 66%);
   -webkit-mask: radial-gradient(circle at center, transparent 61%, #000 63%, #000 79%, transparent 81%);
   mask: radial-gradient(circle at center, transparent 61%, #000 63%, #000 79%, transparent 81%);
-  opacity: 0.9;
+  opacity: 0.22;
 }
 
 .hero-panel::after {
@@ -553,7 +573,7 @@ svg {
   background: conic-gradient(from 20deg, var(--flame-3), var(--flame-2) 35%, var(--flame-1) 60%, transparent 61%);
   -webkit-mask: radial-gradient(circle at center, transparent 54%, #000 56%, #000 75%, transparent 77%);
   mask: radial-gradient(circle at center, transparent 54%, #000 56%, #000 75%, transparent 77%);
-  opacity: 0.45;
+  opacity: 0.16;
 }
 
 .hero-panel h2 {
@@ -1852,6 +1872,16 @@ svg {
     flex-direction: column;
   }
 
+  .hero-logo {
+    position: relative;
+    top: auto;
+    right: auto;
+    order: -1;
+    width: 150px;
+    max-height: 96px;
+    opacity: 0.9;
+  }
+
   .metric-grid,
   .content-grid,
   .report-metrics,
@@ -1870,6 +1900,7 @@ svg {
   .metric-grid,
   .campaigns-controls.no-print,
   .form-message.no-print,
+  .report-format-tabs.no-print,
   .report-toolbar .topbar-actions {
     display: none !important;
   }

@@ -58,6 +58,18 @@ def _period_bounds(period: str, since: str | None = None, until: str | None = No
     return (yesterday - timedelta(days=29)).isoformat(), yesterday.isoformat()
 
 
+def _previous_period_bounds(period: str, since: str | None = None, until: str | None = None) -> tuple[str | None, str | None]:
+    current_since, current_until = _period_bounds(period, since, until)
+    if not current_since or not current_until:
+        return None, None
+    start = date.fromisoformat(current_since)
+    end = date.fromisoformat(current_until)
+    days = (end - start).days + 1
+    previous_until = start - timedelta(days=1)
+    previous_since = previous_until - timedelta(days=days - 1)
+    return previous_since.isoformat(), previous_until.isoformat()
+
+
 def _graph_url(settings: Settings, path: str) -> str:
     return f"https://graph.facebook.com/{settings.meta_api_version}/{path.lstrip('/')}"
 
@@ -178,6 +190,12 @@ def _error_message(detail: Any) -> str:
             return str(error.get("message") or error)
         return str(detail.get("message") or detail)
     return str(detail)
+
+
+METRICS_SELECT = (
+    "campaign_external_id,campaign_name,campaign,platform,ad_group,ad_name,spend,impressions,reach,"
+    "clicks,inline_link_clicks,leads,metric_date,raw_json"
+)
 
 
 def _update_or_insert(client, table: str, match: dict[str, Any], row: dict[str, Any]) -> dict[str, Any]:
@@ -434,7 +452,7 @@ async def sync_meta_client(
             token,
             fields=(
                 "campaign_id,campaign_name,date_start,date_stop,spend,impressions,reach,clicks,"
-                "inline_link_clicks,ctr,cpc,cpm,frequency,actions"
+                "inline_link_clicks,ctr,cpc,cpm,frequency,actions,action_values,purchase_roas"
             ),
             params={"level": "campaign", "time_increment": "1", **_period_query(date_preset, since, until)},
         )
@@ -547,7 +565,7 @@ def meta_client_summary(
     )
     metrics_query = (
         admin.table("campaign_daily_metrics")
-        .select("campaign_external_id,campaign_name,campaign,platform,ad_group,ad_name,spend,impressions,reach,clicks,inline_link_clicks,leads,metric_date,raw_json")
+        .select(METRICS_SELECT)
         .eq("client_id", client_id)
     )
     period_since, period_until = _period_bounds(date_preset, since, until)
@@ -556,6 +574,17 @@ def meta_client_summary(
     if period_until:
         metrics_query = metrics_query.lte("metric_date", period_until)
     metrics = metrics_query.execute()
+    previous_metrics_query = (
+        admin.table("campaign_daily_metrics")
+        .select(METRICS_SELECT)
+        .eq("client_id", client_id)
+    )
+    previous_since, previous_until = _previous_period_bounds(date_preset, since, until)
+    if previous_since:
+        previous_metrics_query = previous_metrics_query.gte("metric_date", previous_since)
+    if previous_until:
+        previous_metrics_query = previous_metrics_query.lte("metric_date", previous_until)
+    previous_metrics = previous_metrics_query.execute() if previous_since and previous_until else None
     sync_runs = (
         admin.table("sync_runs")
         .select("*")
@@ -588,8 +617,10 @@ def meta_client_summary(
         "client": client_result.data[0],
         "campaigns": campaigns.data or [],
         "metrics": rows,
+        "previousMetrics": (previous_metrics.data if previous_metrics else []) or [],
         "syncRuns": sync_runs.data or [],
         "period": {"datePreset": date_preset, "since": period_since, "until": period_until},
+        "previousPeriod": {"since": previous_since, "until": previous_until},
         "totals": {
             "spend": spend,
             "leads": leads,

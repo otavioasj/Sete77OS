@@ -1285,6 +1285,170 @@ svg {
   font-size: 1.3rem;
 }
 
+.optimization-board {
+  display: grid;
+  gap: 14px;
+  margin-top: 18px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface-soft);
+}
+
+.optimization-board-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.optimization-board-head span,
+.optimization-diagnostics > span {
+  display: block;
+  color: var(--flame-2);
+  font-size: 0.72rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.optimization-board-head strong {
+  display: block;
+  margin-top: 4px;
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  font-weight: 400;
+}
+
+.optimization-board-head small {
+  color: var(--text-dim);
+  font-weight: 800;
+}
+
+.optimization-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.optimization-metric {
+  display: grid;
+  gap: 8px;
+  min-height: 138px;
+  padding: 13px;
+  border: 1px solid var(--line);
+  border-top-width: 3px;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+
+.optimization-metric.green {
+  border-top-color: var(--positive);
+}
+
+.optimization-metric.red {
+  border-top-color: var(--negative);
+}
+
+.optimization-metric.blue {
+  border-top-color: var(--info);
+}
+
+.optimization-metric > span {
+  color: var(--text-dim);
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.optimization-metric strong {
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  font-weight: 400;
+  overflow-wrap: anywhere;
+}
+
+.metric-previous {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+
+.metric-previous small {
+  color: var(--text-dim);
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
+.metric-previous em {
+  border-radius: var(--radius-pill);
+  padding: 3px 7px;
+  background: var(--info-soft);
+  color: var(--info);
+  font-size: 0.72rem;
+  font-style: normal;
+  font-weight: 900;
+}
+
+.optimization-metric.green .metric-previous em {
+  background: var(--positive-soft);
+  color: #0f5136;
+}
+
+.optimization-metric.red .metric-previous em {
+  background: var(--negative-soft);
+  color: var(--negative);
+}
+
+.optimization-metric p {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 0.76rem;
+  line-height: 1.4;
+}
+
+.optimization-diagnostics {
+  display: grid;
+  gap: 9px;
+}
+
+.checklist-diagnostic {
+  display: grid;
+  gap: 5px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-left-width: 4px;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+
+.checklist-diagnostic.amber {
+  border-left-color: var(--warning);
+}
+
+.checklist-diagnostic.red {
+  border-left-color: var(--negative);
+}
+
+.checklist-diagnostic.green {
+  border-left-color: var(--positive);
+}
+
+.checklist-diagnostic.blue {
+  border-left-color: var(--info);
+}
+
+.checklist-diagnostic p,
+.checklist-diagnostic small {
+  margin: 0;
+  color: var(--text-dim);
+  line-height: 1.45;
+}
+
+.checklist-diagnostic small {
+  font-weight: 800;
+}
+
 .ai-priority-list {
   display: grid;
   gap: 10px;
@@ -2136,6 +2300,7 @@ svg {
   .metric-grid,
   .content-grid,
   .command-grid,
+  .optimization-metric-grid,
   .report-metrics {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -2176,6 +2341,7 @@ svg {
   .content-grid,
   .command-grid,
   .command-grid.lower,
+  .optimization-metric-grid,
   .report-metrics,
   .report-context-grid,
   .settings-form,
@@ -2202,6 +2368,11 @@ svg {
   .ranking-row,
   .reasoning-chain {
     grid-template-columns: 1fr;
+  }
+
+  .optimization-board-head {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }
 

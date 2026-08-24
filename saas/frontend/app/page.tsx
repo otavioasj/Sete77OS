@@ -69,25 +69,33 @@ type MetaAssets = {
   pages: MetaPage[];
 };
 
+type CampaignMetric = {
+  campaign_external_id?: string | null;
+  campaign_name?: string | null;
+  campaign?: string | null;
+  platform?: string | null;
+  ad_group?: string | null;
+  ad_name?: string | null;
+  metric_date?: string | null;
+  spend: number;
+  leads: number;
+  reach: number;
+  clicks: number;
+  inline_link_clicks?: number;
+  impressions: number;
+  raw_json?: {
+    actions?: { action_type?: string; value?: string | number }[];
+    action_values?: { action_type?: string; value?: string | number }[];
+    purchase_roas?: { action_type?: string; value?: string | number }[];
+    frequency?: string | number;
+  } | null;
+};
+
 type ClientSummary = {
   client: ClientRecord;
   campaigns: { id: string; name: string; status?: string; effective_status?: string; objective?: string; meta_campaign_id?: string }[];
-  metrics: {
-    campaign_external_id?: string | null;
-    campaign_name?: string | null;
-    campaign?: string | null;
-    platform?: string | null;
-    ad_group?: string | null;
-    ad_name?: string | null;
-    metric_date?: string | null;
-    spend: number;
-    leads: number;
-    reach: number;
-    clicks: number;
-    inline_link_clicks?: number;
-    impressions: number;
-    raw_json?: { actions?: { action_type?: string; value?: string | number }[] } | null;
-  }[];
+  metrics: CampaignMetric[];
+  previousMetrics?: CampaignMetric[];
   syncRuns: { id: string; status: string; started_at: string; campaigns_synced: number; metrics_synced: number; error?: string }[];
   totals: {
     spend: number;
@@ -171,6 +179,16 @@ type ReportTableRow = {
 };
 
 type MetricRow = ClientSummary["metrics"][number];
+
+type OptimizationMetric = {
+  key: string;
+  label: string;
+  value: number;
+  previous: number;
+  format: "number" | "currency" | "percent" | "ratio";
+  lowerIsBetter?: boolean;
+  helper: string;
+};
 
 const datePresetLabels: Record<DatePreset, string> = {
   last_30d: "Ultimos 30 dias",
@@ -274,6 +292,100 @@ function calculateTotals(rows: ClientSummary["metrics"]): ClientSummary["totals"
     cpm: impressions ? (spend / impressions) * 1000 : 0,
     ctr: impressions ? (clicks / impressions) * 100 : 0,
   };
+}
+
+const optimizationActionTypes = {
+  landingPageViews: ["landing_page_view", "omni_landing_page_view"],
+  addToCart: ["add_to_cart", "omni_add_to_cart", "offsite_conversion.fb_pixel_add_to_cart"],
+  initiateCheckout: ["initiate_checkout", "omni_initiated_checkout", "offsite_conversion.fb_pixel_initiate_checkout"],
+  purchase: ["purchase", "omni_purchase", "offsite_conversion.fb_pixel_purchase"],
+};
+
+function actionValueTotal(actions: { action_type?: string; value?: string | number }[] | undefined, actionTypes: string[]) {
+  return actionTotal(actions, actionTypes);
+}
+
+function averageFrequency(rows: ClientSummary["metrics"]) {
+  const weighted = rows.reduce(
+    (acc, row) => {
+      const impressions = numberValue(row.impressions);
+      const frequency = numberValue(row.raw_json?.frequency);
+      if (!impressions || !frequency) return acc;
+      return { total: acc.total + frequency * impressions, impressions: acc.impressions + impressions };
+    },
+    { total: 0, impressions: 0 }
+  );
+  return weighted.impressions ? weighted.total / weighted.impressions : 0;
+}
+
+function buildOptimizationMetrics(rows: ClientSummary["metrics"], previousRows: ClientSummary["metrics"] = []): OptimizationMetric[] {
+  const currentTotals = calculateTotals(rows);
+  const previousTotals = calculateTotals(previousRows);
+  const metricValue = (metricRows: ClientSummary["metrics"], kind: keyof typeof optimizationActionTypes) =>
+    metricRows.reduce((total, row) => total + actionValueTotal(row.raw_json?.actions, optimizationActionTypes[kind]), 0);
+  const metricActionValue = (metricRows: ClientSummary["metrics"], kind: keyof typeof optimizationActionTypes) =>
+    metricRows.reduce((total, row) => total + actionValueTotal(row.raw_json?.action_values, optimizationActionTypes[kind]), 0);
+  const current = {
+    landingPageViews: metricValue(rows, "landingPageViews"),
+    addToCart: metricValue(rows, "addToCart"),
+    initiateCheckout: metricValue(rows, "initiateCheckout"),
+    purchases: metricValue(rows, "purchase"),
+    purchaseValue: metricActionValue(rows, "purchase"),
+    frequency: averageFrequency(rows),
+  };
+  const previous = {
+    landingPageViews: metricValue(previousRows, "landingPageViews"),
+    addToCart: metricValue(previousRows, "addToCart"),
+    initiateCheckout: metricValue(previousRows, "initiateCheckout"),
+    purchases: metricValue(previousRows, "purchase"),
+    purchaseValue: metricActionValue(previousRows, "purchase"),
+    frequency: averageFrequency(previousRows),
+  };
+  const roas = current.purchaseValue && currentTotals.spend ? current.purchaseValue / currentTotals.spend : 0;
+  const previousRoas = previous.purchaseValue && previousTotals.spend ? previous.purchaseValue / previousTotals.spend : 0;
+  return [
+    { key: "spend", label: "Valor gasto", value: currentTotals.spend, previous: previousTotals.spend, format: "currency", helper: "investimento no periodo" },
+    { key: "impressions", label: "Impressoes totais", value: currentTotals.impressions, previous: previousTotals.impressions, format: "number", helper: "volume de entrega" },
+    { key: "reach", label: "Alcance", value: currentTotals.reach, previous: previousTotals.reach, format: "number", helper: "pessoas alcancadas" },
+    { key: "cpm", label: "CPM", value: currentTotals.cpm, previous: previousTotals.cpm, format: "currency", lowerIsBetter: true, helper: "checklist: concorrencia, posicionamento, criativo e escala" },
+    { key: "clicks", label: "Cliques", value: currentTotals.clicks, previous: previousTotals.clicks, format: "number", helper: "volume de trafego" },
+    { key: "ctr", label: "CTR", value: currentTotals.ctr, previous: previousTotals.ctr, format: "percent", helper: "checklist: criativo, copy, publico e posicionamentos" },
+    { key: "frequency", label: "Frequencia", value: current.frequency, previous: previous.frequency, format: "ratio", lowerIsBetter: true, helper: "checklist: saturacao e publico pequeno" },
+    { key: "landing_page_views", label: "Visualizacoes da landing page", value: current.landingPageViews, previous: previous.landingPageViews, format: "number", helper: "base para connect rate" },
+    { key: "cost_lpv", label: "Custo por visualizacao da landing page", value: current.landingPageViews ? currentTotals.spend / current.landingPageViews : 0, previous: previous.landingPageViews ? previousTotals.spend / previous.landingPageViews : 0, format: "currency", lowerIsBetter: true, helper: "checklist: CTA e velocidade da pagina" },
+    { key: "connect_rate", label: "Connect rate", value: currentTotals.clicks ? (current.landingPageViews / currentTotals.clicks) * 100 : 0, previous: previousTotals.clicks ? (previous.landingPageViews / previousTotals.clicks) * 100 : 0, format: "percent", helper: "LP views divididas por cliques" },
+    { key: "leads", label: "Leads", value: currentTotals.leads, previous: previousTotals.leads, format: "number", helper: "formularios e eventos de lead" },
+    { key: "cpl", label: "CPL", value: currentTotals.cpl, previous: previousTotals.cpl, format: "currency", lowerIsBetter: true, helper: "checklist: qualidade, formulario e segmentacao" },
+    { key: "lead_rate", label: "Taxa de conversao em lead", value: current.landingPageViews ? (currentTotals.leads / current.landingPageViews) * 100 : 0, previous: previous.landingPageViews ? (previousTotals.leads / previous.landingPageViews) * 100 : 0, format: "percent", helper: "leads divididos por LP views" },
+    { key: "conversations", label: "Conversas", value: currentTotals.conversations, previous: previousTotals.conversations, format: "number", helper: "WhatsApp e mensagens iniciadas" },
+    { key: "add_to_cart", label: "Adicoes ao carrinho", value: current.addToCart, previous: previous.addToCart, format: "number", helper: "evento de meio de funil" },
+    { key: "cost_add_to_cart", label: "Custo por adicao ao carrinho", value: current.addToCart ? currentTotals.spend / current.addToCart : 0, previous: previous.addToCart ? previousTotals.spend / previous.addToCart : 0, format: "currency", lowerIsBetter: true, helper: "e-commerce: eficiencia no carrinho" },
+    { key: "checkout", label: "Finalizacoes de compra iniciadas", value: current.initiateCheckout, previous: previous.initiateCheckout, format: "number", helper: "evento de fundo de funil" },
+    { key: "cost_checkout", label: "Custo por finalizacao iniciada", value: current.initiateCheckout ? currentTotals.spend / current.initiateCheckout : 0, previous: previous.initiateCheckout ? previousTotals.spend / previous.initiateCheckout : 0, format: "currency", lowerIsBetter: true, helper: "eficiencia ate checkout" },
+    { key: "purchases", label: "Compras", value: current.purchases, previous: previous.purchases, format: "number", helper: "conversoes de compra" },
+    { key: "cost_purchase", label: "Custo por compra", value: current.purchases ? currentTotals.spend / current.purchases : 0, previous: previous.purchases ? previousTotals.spend / previous.purchases : 0, format: "currency", lowerIsBetter: true, helper: "CPA de compra" },
+    { key: "purchase_value", label: "Valor total das compras", value: current.purchaseValue, previous: previous.purchaseValue, format: "currency", helper: "receita atribuida pela Meta" },
+    { key: "roas", label: "ROAS", value: roas, previous: previousRoas, format: "ratio", helper: "receita dividida por investimento" },
+  ];
+}
+
+function metricDelta(metric: OptimizationMetric) {
+  if (!metric.previous) return null;
+  return ((metric.value - metric.previous) / Math.abs(metric.previous)) * 100;
+}
+
+function formatOptimizationValue(metric: OptimizationMetric, value = metric.value) {
+  if (metric.format === "currency") return formatCurrency(value);
+  if (metric.format === "percent") return formatPercent(value);
+  if (metric.format === "ratio") return numberValue(value).toFixed(2).replace(".", ",");
+  return formatNumber(value);
+}
+
+function metricTone(metric: OptimizationMetric) {
+  const delta = metricDelta(metric);
+  if (delta === null || Math.abs(delta) < 0.01) return "blue";
+  const improved = metric.lowerIsBetter ? delta < 0 : delta > 0;
+  return improved ? "green" : "red";
 }
 
 function formatCurrency(value: number) {
@@ -602,6 +714,18 @@ export default function Home() {
     return clientSummary.metrics.filter((row) => selectedIds.has(row.campaign_external_id ?? ""));
   }, [campaignSearch, campaignStatusFilter, clientSummary, filteredCampaigns, selectedCampaignIds]);
 
+  const previousDisplayedMetricRows = useMemo(() => {
+    if (!clientSummary?.previousMetrics) return [];
+    const selectedIds = new Set(selectedCampaignIds);
+    if (!selectedIds.size || selectedIds.size === clientSummary.campaigns.length) {
+      const hasCampaignFilter = campaignStatusFilter !== "all" || Boolean(campaignSearch.trim());
+      if (!hasCampaignFilter) return clientSummary.previousMetrics;
+      const visibleCampaignIds = new Set(filteredCampaigns.map((campaign) => campaign.meta_campaign_id).filter(Boolean));
+      return clientSummary.previousMetrics.filter((row) => visibleCampaignIds.has(row.campaign_external_id ?? ""));
+    }
+    return clientSummary.previousMetrics.filter((row) => selectedIds.has(row.campaign_external_id ?? ""));
+  }, [campaignSearch, campaignStatusFilter, clientSummary, filteredCampaigns, selectedCampaignIds]);
+
   const campaignRows = useMemo<CampaignPerformance[]>(() => {
     if (!clientSummary) return [];
     return filteredCampaigns.map((campaign) => {
@@ -688,6 +812,71 @@ export default function Home() {
     () => aggregateMetricRows(displayedMetricRows, (row) => row.ad_name || "Criativo nao informado", (row) => row.ad_group || row.campaign_name || row.campaign || "").slice(0, 4),
     [displayedMetricRows]
   );
+
+  const optimizationMetrics = useMemo(
+    () => buildOptimizationMetrics(displayedMetricRows, previousDisplayedMetricRows),
+    [displayedMetricRows, previousDisplayedMetricRows]
+  );
+
+  const optimizationDiagnostics = useMemo(() => {
+    const byKey = new Map(optimizationMetrics.map((metric) => [metric.key, metric]));
+    const diagnostics: { title: string; detail: string; action: string; tone: CampaignPerformance["tone"] }[] = [];
+    const cpm = byKey.get("cpm");
+    const ctr = byKey.get("ctr");
+    const frequency = byKey.get("frequency");
+    const connectRate = byKey.get("connect_rate");
+    const leadRate = byKey.get("lead_rate");
+    const cpl = byKey.get("cpl");
+    if (cpm && metricTone(cpm) === "red") {
+      diagnostics.push({
+        title: "CPM piorou",
+        detail: "Checklist: concorrencia, posicionamento concorrido, criativo fraco ou escala de orcamento podem elevar o custo de entrega.",
+        action: "Testar novos publicos, posicionamentos e formatos antes de aumentar verba.",
+        tone: "amber",
+      });
+    }
+    if (ctr && ctr.value > 0 && (ctr.value < 0.8 || metricTone(ctr) === "red")) {
+      diagnostics.push({
+        title: "CTR pede atencao",
+        detail: "Checklist: criativo, copy, regioes, horarios, formatos e publico precisam ser revisitados.",
+        action: "Subir novos criativos com AIDA/PAS, CTA claro e formatos adequados aos posicionamentos.",
+        tone: "red",
+      });
+    }
+    if ((frequency?.value ?? 0) >= 3 || (frequency && metricTone(frequency) === "red")) {
+      diagnostics.push({
+        title: "Possivel saturacao",
+        detail: "Checklist: frequencia alta costuma indicar publico pequeno, criativo cansado ou falta de formatos.",
+        action: "Expandir publico, alternar criativos e testar video, imagem e carrossel.",
+        tone: "amber",
+      });
+    }
+    if ((connectRate?.value ?? 0) > 0 && (connectRate?.value ?? 0) < 55) {
+      diagnostics.push({
+        title: "Connect rate baixo",
+        detail: "Checklist: a jornada pos-clique pode nao estar clara ou a pagina pode estar lenta.",
+        action: "Conferir CTA do anuncio, promessa da landing page e velocidade no PageSpeed/GTmetrix.",
+        tone: "amber",
+      });
+    }
+    if ((leadRate?.value ?? 0) > 0 && (leadRate?.value ?? 0) < 4) {
+      diagnostics.push({
+        title: "Conversao da pagina baixa",
+        detail: "Checklist: oferta, formulario, layout e CTA podem estar impedindo conversao.",
+        action: "Simplificar formulario, destacar proposta de valor e testar versoes de CTA.",
+        tone: "red",
+      });
+    }
+    if (cpl && metricTone(cpl) === "red") {
+      diagnostics.push({
+        title: "CPL piorou",
+        detail: "Checklist: revisar qualidade do lead, segmentacao, formulario e alinhamento com vendas.",
+        action: "Aplicar score de lead e redistribuir verba para campanhas com melhor qualidade.",
+        tone: "red",
+      });
+    }
+    return diagnostics.slice(0, 5);
+  }, [optimizationMetrics]);
 
   const aiPriorities = useMemo(() => buildAiPriorities(campaignRows), [campaignRows]);
 
@@ -1980,6 +2169,49 @@ export default function Home() {
                       <strong>{(displayedTotals?.costPerResult ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</strong>
                     </div>
                   </div>
+
+                  <div className="optimization-board">
+                    <div className="optimization-board-head">
+                      <div>
+                        <span>Metricas de otimizacao</span>
+                        <strong>Atual vs periodo anterior</strong>
+                      </div>
+                      <small>Baseado na checklist de Leads & Anuncios</small>
+                    </div>
+                    <div className="optimization-metric-grid">
+                      {optimizationMetrics.map((metric) => {
+                        const delta = metricDelta(metric);
+                        const tone = metricTone(metric);
+                        return (
+                          <article className={`optimization-metric ${tone}`} key={metric.key}>
+                            <span>{metric.label}</span>
+                            <strong>{formatOptimizationValue(metric)}</strong>
+                            <div className="metric-previous">
+                              <small>{formatOptimizationValue(metric, metric.previous)} no periodo anterior</small>
+                              {delta === null ? (
+                                <em>sem base</em>
+                              ) : (
+                                <em>{delta > 0 ? "▲" : "▼"} {Math.abs(delta).toFixed(2)}%</em>
+                              )}
+                            </div>
+                            <p>{metric.helper}</p>
+                          </article>
+                        );
+                      })}
+                    </div>
+                    <div className="optimization-diagnostics">
+                      <span>Diagnosticos automaticos</span>
+                      {optimizationDiagnostics.map((diagnostic) => (
+                        <article className={`checklist-diagnostic ${diagnostic.tone}`} key={diagnostic.title}>
+                          <strong>{diagnostic.title}</strong>
+                          <p>{diagnostic.detail}</p>
+                          <small>{diagnostic.action}</small>
+                        </article>
+                      ))}
+                      {!optimizationDiagnostics.length ? <p className="muted">Nenhum alerta critico detectado nas metricas comparadas.</p> : null}
+                    </div>
+                  </div>
+
                   <div className="ai-priority-list">
                     {actionMessage ? <p className="form-message">{actionMessage}</p> : null}
                     {aiPriorities.map((priority) => {

@@ -642,7 +642,84 @@ export default function Home() {
     return { bestByResult, worstByResult };
   }, [reportRows]);
 
+  const overviewTotals = displayedTotals ?? clientSummary?.totals ?? calculateTotals([]);
+
+  const overviewCards = useMemo<Metric[]>(() => {
+    if (!clientSummary) {
+      return [
+        { label: "Clientes conectados", value: String(clients.length), helper: "contas no workspace", tone: "blue" },
+        { label: "Meta Ads", value: assets?.connected ? "Ativo" : "Pendente", helper: assets?.connected ? "integracao conectada" : "aguardando permissao", tone: assets?.connected ? "green" : "amber" },
+        { label: "Campanhas analisadas", value: "0", helper: "selecione um cliente", tone: "amber" },
+        { label: "IA consultiva", value: "Pronta", helper: "analise manual disponivel", tone: "green" },
+      ];
+    }
+    return [
+      { label: "Investimento", value: formatCurrency(overviewTotals.spend), helper: periodLabel(), tone: "blue" },
+      { label: overviewTotals.resultLabel, value: formatNumber(overviewTotals.metaResults), helper: `${formatNumber(overviewTotals.leads)} leads rastreados`, tone: "green" },
+      { label: "Custo medio", value: formatCurrency(overviewTotals.costPerResult), helper: "por resultado principal", tone: overviewTotals.costPerResult && overviewTotals.costPerResult > 20 ? "amber" : "green" },
+      { label: "CTR", value: formatPercent(overviewTotals.ctr), helper: `${formatNumber(overviewTotals.impressions)} impressoes`, tone: overviewTotals.ctr && overviewTotals.ctr < 0.8 ? "red" : "blue" },
+    ];
+  }, [assets?.connected, clientSummary, clients.length, overviewTotals, periodLabel]);
+
+  const overviewTrendRows = useMemo(() => {
+    const grouped = new Map<string, ClientSummary["metrics"]>();
+    displayedMetricRows.forEach((row) => {
+      const key = row.metric_date ?? row.campaign_external_id ?? "sem-data";
+      grouped.set(key, [...(grouped.get(key) ?? []), row]);
+    });
+    return Array.from(grouped.entries())
+      .map(([date, rows]) => ({ date, totals: calculateTotals(rows) }))
+      .sort((a, b) => a.date.localeCompare(b.date))
+      .slice(-10);
+  }, [displayedMetricRows]);
+
+  const overviewTrendMax = Math.max(
+    1,
+    ...overviewTrendRows.map((row) => row.totals.spend),
+    ...overviewTrendRows.map((row) => row.totals.metaResults)
+  );
+
+  const overviewPlatformRows = useMemo(
+    () => aggregateMetricRows(displayedMetricRows, (row) => (row.platform === "meta_ads" ? "Meta Ads" : row.platform || "Plataforma nao informada")),
+    [displayedMetricRows]
+  );
+
+  const overviewCreativeRows = useMemo(
+    () => aggregateMetricRows(displayedMetricRows, (row) => row.ad_name || "Criativo nao informado", (row) => row.ad_group || row.campaign_name || row.campaign || "").slice(0, 4),
+    [displayedMetricRows]
+  );
+
   const aiPriorities = useMemo(() => buildAiPriorities(campaignRows), [campaignRows]);
+
+  const overviewAiInsights = useMemo(() => {
+    if (aiPriorities.length) {
+      return aiPriorities.slice(0, 3).map((priority) => ({
+        title: priority.title,
+        campaign: priority.campaign.name,
+        detail: priority.impact,
+        action: priority.action,
+        tone: priority.tone,
+      }));
+    }
+    if (campaignRows.length) {
+      return campaignRows.slice(0, 3).map((campaign) => ({
+        title: campaign.recommendation,
+        campaign: campaign.name,
+        detail: `${formatNumber(campaign.totals.metaResults)} ${campaign.totals.resultLabel} com ${formatCurrency(campaign.totals.spend)} investidos.`,
+        action: "Manter monitoramento e comparar com o proximo periodo.",
+        tone: campaign.tone,
+      }));
+    }
+    return [
+      {
+        title: "Dados ainda nao carregados",
+        campaign: "Workspace",
+        detail: "Selecione um cliente e sincronize as campanhas para liberar diagnosticos acionaveis.",
+        action: "Conectar Meta Ads ou abrir um cliente existente.",
+        tone: "blue" as CampaignPerformance["tone"],
+      },
+    ];
+  }, [aiPriorities, campaignRows]);
 
   const actionItemByKey = useMemo(() => {
     const items = new Map<string, ActionItem>();
@@ -1313,32 +1390,185 @@ export default function Home() {
 
         {activeView === "Visao geral" ? (
           <>
-          <section className="hero-panel">
-          <img className="hero-logo" src="/creative-logo.png" alt="Creative Marketing" />
-          <div>
-            <p className="eyebrow">Prioridade da semana</p>
-            <h2>Conectar Meta Ads e transformar dados em decisoes diarias.</h2>
-            <p>
-              A V1 ja nasce com login, multi-cliente, metricas, recomendacoes, relatorios e logs de acao. O proximo passo e trazer dados reais da Meta.
-            </p>
-          </div>
-          <div className="hero-actions">
-            <button className="primary-button" onClick={connectMeta} disabled={apiLoading}>
-              <PlugZap size={18} /> Conectar Meta Ads
-            </button>
-            <button className="secondary-button"><Target size={18} /> Criar cliente</button>
-          </div>
-          </section>
+            <section className="hero-panel command-hero">
+              <img className="hero-logo" src="/creative-logo.png" alt="Creative Marketing" />
+              <div>
+                <p className="eyebrow">Creative Ads 2.0</p>
+                <h2>Central de decisao para anuncios, IA e plano de acao.</h2>
+                <p>
+                  Acompanhe investimento, resultado, campanhas que puxam crescimento e alertas acionaveis em uma unica tela.
+                </p>
+              </div>
+              <div className="hero-actions">
+                <label className="hero-select">
+                  Cliente
+                  <select value={selectedClientId} onChange={(event) => event.target.value && loadClientSummary(event.target.value)}>
+                    <option value="">Selecione</option>
+                    {clients.map((client) => (
+                      <option value={client.id} key={client.id}>{client.name}</option>
+                    ))}
+                  </select>
+                </label>
+                <button className="primary-button" onClick={() => selectedClientId ? syncClient(selectedClientId) : connectMeta()} disabled={apiLoading}>
+                  <PlugZap size={18} /> {selectedClientId ? "Sincronizar" : "Conectar Meta Ads"}
+                </button>
+              </div>
+            </section>
 
-          <section className="metric-grid">
-          {metrics.map((metric) => (
-            <article className={`metric-card ${metric.tone}`} key={metric.label}>
-              <span>{metric.label}</span>
-              <strong>{metric.value}</strong>
-              <small>{metric.helper}</small>
-            </article>
-          ))}
-          </section>
+            <section className="metric-grid command-metrics">
+              {overviewCards.map((metric) => (
+                <article className={`metric-card ${metric.tone}`} key={metric.label}>
+                  <span>{metric.label}</span>
+                  <strong>{metric.value}</strong>
+                  <small>{metric.helper}</small>
+                </article>
+              ))}
+            </section>
+
+            <section className="command-grid">
+              <article className="panel command-main">
+                <div className="panel-head">
+                  <div>
+                    <p className="eyebrow">Performance</p>
+                    <h3>{clientSummary ? clientSummary.client.name : "Selecione um cliente para ver dados reais"}</h3>
+                  </div>
+                  {periodControls}
+                </div>
+                <div className="trend-chart">
+                  {overviewTrendRows.length ? (
+                    overviewTrendRows.map((row) => (
+                      <div className="trend-column" key={row.date}>
+                        <span className="trend-spend" style={{ height: `${Math.max(8, (row.totals.spend / overviewTrendMax) * 100)}%` }} />
+                        <span className="trend-results" style={{ height: `${Math.max(8, (row.totals.metaResults / overviewTrendMax) * 100)}%` }} />
+                        <small>{row.date.slice(5) || row.date}</small>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="muted compact-muted">Sincronize um cliente para carregar a tendencia de investimento e resultados.</p>
+                  )}
+                </div>
+                <div className="chart-legend">
+                  <span><i className="spend" /> Investimento</span>
+                  <span><i className="results" /> Resultados</span>
+                </div>
+              </article>
+
+              <aside className="panel ai-command-panel">
+                <div className="panel-head">
+                  <div>
+                    <p className="eyebrow">AI insights</p>
+                    <h3>Alertas acionaveis</h3>
+                  </div>
+                  <Sparkles size={21} />
+                </div>
+                <div className="command-insight-list">
+                  {overviewAiInsights.map((insight, index) => (
+                    <article className={`command-insight ${insight.tone}`} key={`${insight.title}-${index}`}>
+                      <span>{insight.campaign}</span>
+                      <strong>{insight.title}</strong>
+                      <p>{insight.detail}</p>
+                      <button className="link-button" onClick={() => setActiveView("Otimizacao IA")}>
+                        Aplicar sugestao <ChevronRight size={16} />
+                      </button>
+                    </article>
+                  ))}
+                </div>
+              </aside>
+            </section>
+
+            <section className="command-grid lower">
+              <article className="panel">
+                <div className="panel-head">
+                  <div>
+                    <p className="eyebrow">Campanhas</p>
+                    <h3>Ranking operacional</h3>
+                  </div>
+                  <BarChart3 size={21} />
+                </div>
+                <div className="command-ranking">
+                  {campaignRows.slice(0, 5).map((campaign) => (
+                    <div className="ranking-row" key={campaign.id}>
+                      <strong>{campaign.name}</strong>
+                      <span>{formatCurrency(campaign.totals.spend)}</span>
+                      <span>{formatNumber(campaign.totals.metaResults)} {campaign.totals.resultLabel}</span>
+                      <small>{campaign.recommendation}</small>
+                    </div>
+                  ))}
+                  {!campaignRows.length ? <p className="muted compact-muted">Nenhuma campanha carregada para o periodo.</p> : null}
+                </div>
+              </article>
+
+              <article className="panel">
+                <div className="panel-head">
+                  <div>
+                    <p className="eyebrow">Plataformas</p>
+                    <h3>Onde o resultado nasceu</h3>
+                  </div>
+                  <Activity size={21} />
+                </div>
+                <div className="platform-stack">
+                  {(overviewPlatformRows.length ? overviewPlatformRows : [{ label: "Meta Ads", spend: 0, leads: 0, results: 0, resultLabel: "Resultados", clicks: 0, impressions: 0, costPerResult: 0, cpl: 0, ctr: 0, cpm: 0 }]).map((row) => (
+                    <div className="platform-row" key={row.label}>
+                      <div>
+                        <strong>{row.label}</strong>
+                        <span>{formatNumber(row.results)} {row.resultLabel}</span>
+                      </div>
+                      <small>{formatCurrency(row.spend)}</small>
+                    </div>
+                  ))}
+                  {["Google Ads", "TikTok Ads", "LinkedIn Ads"].map((platform) => (
+                    <div className="platform-row muted-row" key={platform}>
+                      <div>
+                        <strong>{platform}</strong>
+                        <span>Nao conectado</span>
+                      </div>
+                      <small>Em breve</small>
+                    </div>
+                  ))}
+                </div>
+              </article>
+
+              <article className="panel">
+                <div className="panel-head">
+                  <div>
+                    <p className="eyebrow">Criativos</p>
+                    <h3>Mapa de resposta</h3>
+                  </div>
+                  <Target size={21} />
+                </div>
+                <div className="creative-heatmap">
+                  {(overviewCreativeRows.length ? overviewCreativeRows : [{ label: "Criativo nao informado", secondary: "Meta Ads", spend: 0, leads: 0, results: 0, resultLabel: "Resultados", clicks: 0, impressions: 0, costPerResult: 0, cpl: 0, ctr: 0, cpm: 0 }]).map((row) => (
+                    <div className="creative-row" key={`${row.label}-${row.secondary ?? ""}`}>
+                      <span>{row.label}</span>
+                      <div className="heat-cells">
+                        {[row.ctr, row.results, row.costPerResult ? Math.max(1, 40 - row.costPerResult) : 0].map((value, index) => (
+                          <i key={index} style={{ opacity: Math.min(1, 0.18 + numberValue(value) / 40) }} />
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                  {overviewCreativeRows.every((row) => row.label === "Criativo nao informado") ? (
+                    <p className="muted">Para abrir performance real de criativo, precisamos sincronizar insights por anuncio.</p>
+                  ) : null}
+                </div>
+              </article>
+
+              <article className="panel reasoning-panel">
+                <div className="panel-head">
+                  <div>
+                    <p className="eyebrow">IA consultiva</p>
+                    <h3>Cadeia de decisao</h3>
+                  </div>
+                  <Bot size={21} />
+                </div>
+                <div className="reasoning-chain">
+                  <div><strong>{displayedMetricRows.length || 0}</strong><span>linhas de dados</span></div>
+                  <div><strong>{aiPriorities.length || campaignRows.length}</strong><span>padroes detectados</span></div>
+                  <div><strong>{actionItems.length}</strong><span>acoes registradas</span></div>
+                  <div><strong>{aiRecommendation ? "Ativa" : "Pendente"}</strong><span>analise IA</span></div>
+                </div>
+              </article>
+            </section>
           </>
         ) : null}
 

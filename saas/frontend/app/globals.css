@@ -1000,6 +1000,29 @@ svg {
   color: var(--text-on-ink-dim);
 }
 
+.ai-command-panel .command-insight {
+  border-color: var(--line);
+  background: var(--surface-soft);
+}
+
+.ai-command-panel .command-insight:hover {
+  border-color: rgba(232, 72, 28, 0.24);
+  background: #fff;
+}
+
+.ai-command-panel .command-insight strong {
+  color: var(--text);
+}
+
+.ai-command-panel .command-insight span,
+.ai-command-panel .command-insight p {
+  color: var(--text-dim);
+}
+
+.ai-command-panel .command-insight .link-button {
+  color: var(--flame-2);
+}
+
 .command-insight span {
   font-size: 0.76rem;
   font-weight: 800;
@@ -1090,11 +1113,43 @@ svg {
   padding: 12px;
 }
 
+.creative-row-with-image {
+  grid-template-columns: 76px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+}
+
+.creative-row-with-image img {
+  width: 76px;
+  aspect-ratio: 1;
+  border-radius: 8px;
+  object-fit: cover;
+  background: var(--ink);
+  border: 1px solid var(--line);
+}
+
+.creative-row-with-image div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.creative-row-with-image strong {
+  overflow-wrap: anywhere;
+}
+
 .creative-row span {
   color: var(--text-dim);
   font-size: 0.8rem;
   font-weight: 800;
   overflow-wrap: anywhere;
+}
+
+.creative-row small {
+  color: var(--text-dim);
+  font-size: 0.76rem;
+  font-weight: 700;
+  line-height: 1.35;
 }
 
 .heat-cells {

@@ -192,6 +192,23 @@ def _error_message(detail: Any) -> str:
     return str(detail)
 
 
+def _creative_preview_from_ad(ad: dict[str, Any]) -> dict[str, Any]:
+    creative = ad.get("creative") if isinstance(ad.get("creative"), dict) else {}
+    adset = ad.get("adset") if isinstance(ad.get("adset"), dict) else {}
+    image_url = creative.get("image_url") or creative.get("thumbnail_url")
+    return {
+        "ad_id": ad.get("id"),
+        "ad_name": ad.get("name") or creative.get("name") or "Criativo sem nome",
+        "adset_id": ad.get("adset_id"),
+        "adset_name": adset.get("name") or "",
+        "creative_id": creative.get("id"),
+        "creative_name": creative.get("name") or "",
+        "image_url": image_url,
+        "thumbnail_url": creative.get("thumbnail_url") or image_url,
+        "status": ad.get("effective_status") or ad.get("status"),
+    }
+
+
 METRICS_SELECT = (
     "campaign_external_id,campaign_name,campaign,platform,ad_group,ad_name,spend,impressions,reach,"
     "clicks,inline_link_clicks,leads,metric_date,raw_json"
@@ -447,6 +464,41 @@ async def sync_meta_client(
             if saved.get("id"):
                 campaign_id_by_meta_id[campaign["id"]] = saved["id"]
 
+        creative_previews_by_campaign: dict[str, list[dict[str, Any]]] = {}
+        try:
+            ads = await _graph_get_all(
+                f"{ad_account_id}/ads",
+                token,
+                fields=(
+                    "id,name,status,effective_status,campaign_id,adset_id,"
+                    "adset{name},creative{id,name,thumbnail_url,image_url,effective_object_story_id}"
+                ),
+                params={"limit": "100"},
+            )
+            for ad in ads:
+                meta_campaign_id = ad.get("campaign_id")
+                if not meta_campaign_id:
+                    continue
+                if selected_campaign_ids and meta_campaign_id not in selected_campaign_ids:
+                    continue
+                preview = _creative_preview_from_ad(ad)
+                if not preview.get("image_url"):
+                    continue
+                previews = creative_previews_by_campaign.setdefault(meta_campaign_id, [])
+                if not any(item.get("ad_id") == preview.get("ad_id") for item in previews):
+                    previews.append(preview)
+            for campaign in campaigns:
+                meta_campaign_id = campaign.get("id")
+                previews = creative_previews_by_campaign.get(meta_campaign_id or "", [])[:6]
+                if not meta_campaign_id or not previews:
+                    continue
+                metadata = {**campaign, "creative_previews": previews}
+                admin.table("campaigns").update(
+                    {"metadata": metadata, "updated_at": datetime.now(UTC).isoformat()}
+                ).eq("client_id", client_id).eq("meta_campaign_id", meta_campaign_id).execute()
+        except HTTPException:
+            creative_previews_by_campaign = {}
+
         insights = await _graph_get_all(
             f"{ad_account_id}/insights",
             token,
@@ -557,7 +609,7 @@ def meta_client_summary(
 
     campaigns = (
         admin.table("campaigns")
-        .select("id,name,status,effective_status,objective,meta_campaign_id,updated_at")
+        .select("id,name,status,effective_status,objective,meta_campaign_id,metadata,updated_at")
         .eq("client_id", client_id)
         .order("updated_at", desc=True)
         .limit(100)

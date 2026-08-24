@@ -94,9 +94,28 @@ type CampaignMetric = {
   } | null;
 };
 
+type CreativePreview = {
+  ad_id?: string | null;
+  ad_name?: string | null;
+  adset_name?: string | null;
+  creative_id?: string | null;
+  creative_name?: string | null;
+  image_url?: string | null;
+  thumbnail_url?: string | null;
+  status?: string | null;
+};
+
 type ClientSummary = {
   client: ClientRecord;
-  campaigns: { id: string; name: string; status?: string; effective_status?: string; objective?: string; meta_campaign_id?: string }[];
+  campaigns: {
+    id: string;
+    name: string;
+    status?: string;
+    effective_status?: string;
+    objective?: string;
+    meta_campaign_id?: string;
+    metadata?: { creative_previews?: CreativePreview[] } | null;
+  }[];
   metrics: CampaignMetric[];
   previousMetrics?: CampaignMetric[];
   syncRuns: { id: string; status: string; started_at: string; campaigns_synced: number; metrics_synced: number; error?: string }[];
@@ -471,6 +490,11 @@ function aggregateMetricRows(
     .sort((a, b) => b.results - a.results || b.spend - a.spend);
 }
 
+function campaignCreativePreviews(campaign: ClientSummary["campaigns"][number]): CreativePreview[] {
+  const previews = campaign.metadata?.creative_previews;
+  return Array.isArray(previews) ? previews.filter((preview) => preview.image_url || preview.thumbnail_url) : [];
+}
+
 function reportTableToCsv(rows: ReportTableRow[]) {
   const header = ["Nome", "Detalhe", "Investimento", "Leads", "Resultados", "Tipo de resultado", "Cliques", "Impressoes", "Custo por resultado", "CPL", "CTR", "CPM"];
   const body = rows.map((row) => [
@@ -825,6 +849,20 @@ export default function Home() {
     () => aggregateMetricRows(displayedMetricRows, (row) => row.ad_name || "Criativo nao informado", (row) => row.ad_group || row.campaign_name || row.campaign || "").slice(0, 4),
     [displayedMetricRows]
   );
+
+  const overviewCreativePreviewRows = useMemo(() => {
+    if (!clientSummary) return [];
+    return campaignRows.flatMap((campaign) => {
+      const previews = campaignCreativePreviews(campaign);
+      return previews.slice(0, 2).map((preview) => ({
+        id: preview.ad_id || preview.creative_id || `${campaign.id}-${preview.ad_name}`,
+        title: preview.ad_name || preview.creative_name || "Criativo sem nome",
+        subtitle: preview.adset_name || campaign.name,
+        imageUrl: preview.image_url || preview.thumbnail_url || "",
+        campaign,
+      }));
+    }).slice(0, 4);
+  }, [campaignRows, clientSummary]);
 
   const optimizationMetrics = useMemo(
     () => buildOptimizationMetrics(displayedMetricRows, previousDisplayedMetricRows),
@@ -1775,18 +1813,31 @@ export default function Home() {
                   <Target size={21} />
                 </div>
                 <div className="creative-heatmap">
-                  {(overviewCreativeRows.length ? overviewCreativeRows : [{ label: "Criativo nao informado", secondary: "Meta Ads", spend: 0, leads: 0, results: 0, resultLabel: "Resultados", clicks: 0, impressions: 0, costPerResult: 0, cpl: 0, ctr: 0, cpm: 0 }]).map((row) => (
-                    <div className="creative-row" key={`${row.label}-${row.secondary ?? ""}`}>
-                      <span>{row.label}</span>
-                      <div className="heat-cells">
-                        {[row.ctr, row.results, row.costPerResult ? Math.max(1, 40 - row.costPerResult) : 0].map((value, index) => (
-                          <i key={index} style={{ opacity: Math.min(1, 0.18 + numberValue(value) / 40) }} />
-                        ))}
+                  {overviewCreativePreviewRows.length ? (
+                    overviewCreativePreviewRows.map((row) => (
+                      <div className="creative-row creative-row-with-image" key={row.id}>
+                        <img src={row.imageUrl} alt={row.title} loading="lazy" />
+                        <div>
+                          <strong>{row.title}</strong>
+                          <span>{row.subtitle}</span>
+                          <small>{formatNumber(row.campaign.totals.metaResults)} {row.campaign.totals.resultLabel} | {formatCurrency(row.campaign.totals.spend)}</small>
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                  {overviewCreativeRows.every((row) => row.label === "Criativo nao informado") ? (
-                    <p className="muted">Para abrir performance real de criativo, precisamos sincronizar insights por anuncio.</p>
+                    ))
+                  ) : (
+                    (overviewCreativeRows.length ? overviewCreativeRows : [{ label: "Criativo nao informado", secondary: "Meta Ads", spend: 0, leads: 0, results: 0, resultLabel: "Resultados", clicks: 0, impressions: 0, costPerResult: 0, cpl: 0, ctr: 0, cpm: 0 }]).map((row) => (
+                      <div className="creative-row" key={`${row.label}-${row.secondary ?? ""}`}>
+                        <span>{row.label}</span>
+                        <div className="heat-cells">
+                          {[row.ctr, row.results, row.costPerResult ? Math.max(1, 40 - row.costPerResult) : 0].map((value, index) => (
+                            <i key={index} style={{ opacity: Math.min(1, 0.18 + numberValue(value) / 40) }} />
+                          ))}
+                        </div>
+                      </div>
+                    ))
+                  )}
+                  {!overviewCreativePreviewRows.length && overviewCreativeRows.every((row) => row.label === "Criativo nao informado") ? (
+                    <p className="muted">Sincronize o cliente novamente para buscar as imagens dos anuncios ativos.</p>
                   ) : null}
                 </div>
               </article>

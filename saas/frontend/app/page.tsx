@@ -353,6 +353,7 @@ export default function Home() {
   const [aiRecommendation, setAiRecommendation] = useState<AiRecommendation | null>(null);
   const [aiRecommendationLoading, setAiRecommendationLoading] = useState(false);
   const [aiRecommendationGenerating, setAiRecommendationGenerating] = useState(false);
+  const [aiAnalysisRunning, setAiAnalysisRunning] = useState(false);
   const [aiRecommendationError, setAiRecommendationError] = useState("");
   const [actionItems, setActionItems] = useState<ActionItem[]>([]);
   const [actionMessage, setActionMessage] = useState("");
@@ -638,7 +639,7 @@ export default function Home() {
     }
   }
 
-  async function loadClientSummary(clientId: string, preset = datePreset) {
+  async function loadClientSummary(clientId: string, preset = datePreset): Promise<ClientSummary | null> {
     setSelectedClientId(clientId);
     setApiLoading(true);
     setApiMessage("");
@@ -653,8 +654,10 @@ export default function Home() {
       setHistoryOpen(false);
       void loadAiRecommendation(clientId, preset);
       void loadActionItems(clientId, preset);
+      return data as ClientSummary;
     } catch (error) {
       setApiMessage(error instanceof Error ? error.message : "Nao foi possivel carregar o cliente.");
+      return null;
     } finally {
       setApiLoading(false);
     }
@@ -746,8 +749,8 @@ export default function Home() {
     }
   }
 
-  async function generateAiRecommendation() {
-    if (!selectedClientId || !clientSummary || !displayedTotals) return;
+  async function generateAiRecommendation(summary = clientSummary, totals = displayedTotals, priorities = aiPriorities) {
+    if (!selectedClientId || !summary || !totals) return null;
     setAiRecommendationGenerating(true);
     setAiRecommendationError("");
     try {
@@ -756,27 +759,27 @@ export default function Home() {
         body: JSON.stringify({
           period: periodKey(),
           period_label: periodLabel(),
-          client_name: clientSummary.client.name,
+          client_name: summary.client.name,
           client_context: {
-            monthly_budget: clientSummary.client.monthly_budget ?? 0,
-            target_cpl: clientSummary.client.target_cpl ?? 0,
-            account_manager: clientSummary.client.account_manager ?? "",
-            business_goal: clientSummary.client.business_goal ?? "",
-            qualified_lead_definition: clientSummary.client.qualified_lead_definition ?? "",
+            monthly_budget: summary.client.monthly_budget ?? 0,
+            target_cpl: summary.client.target_cpl ?? 0,
+            account_manager: summary.client.account_manager ?? "",
+            business_goal: summary.client.business_goal ?? "",
+            qualified_lead_definition: summary.client.qualified_lead_definition ?? "",
           },
           totals: {
-            spend: displayedTotals.spend,
-            metaResults: displayedTotals.metaResults,
-            resultLabel: displayedTotals.resultLabel,
-            costPerResult: displayedTotals.costPerResult,
-            ctr: displayedTotals.ctr,
-            cpm: displayedTotals.cpm,
-            cpl: displayedTotals.cpl,
-            reach: displayedTotals.reach,
-            clicks: displayedTotals.clicks,
-            impressions: displayedTotals.impressions
+            spend: totals.spend,
+            metaResults: totals.metaResults,
+            resultLabel: totals.resultLabel,
+            costPerResult: totals.costPerResult,
+            ctr: totals.ctr,
+            cpm: totals.cpm,
+            cpl: totals.cpl,
+            reach: totals.reach,
+            clicks: totals.clicks,
+            impressions: totals.impressions
           },
-          priorities: aiPriorities.map((priority) => ({
+          priorities: priorities.map((priority) => ({
             campaign_name: priority.campaign.name,
             title: priority.title,
             action: priority.action,
@@ -786,14 +789,16 @@ export default function Home() {
         })
       });
       setAiRecommendation(data.recommendation ?? null);
+      return data.recommendation ?? null;
     } catch (error) {
       setAiRecommendationError(error instanceof Error ? error.message : "Nao foi possivel gerar o plano de acao.");
+      return null;
     } finally {
       setAiRecommendationGenerating(false);
     }
   }
 
-  async function syncClient(clientId: string, campaignIds: string[] = []) {
+  async function syncClient(clientId: string, campaignIds: string[] = []): Promise<ClientSummary | null> {
     setSelectedClientId(clientId);
     setApiLoading(true);
     setSyncProgress({ clientId, percent: 8, label: "Preparando sincronizacao", status: "running" });
@@ -829,7 +834,7 @@ export default function Home() {
       setSyncProgress({ clientId, percent: 100, label: "Sincronizacao concluida", status: "success" });
       setApiMessage(`Sincronizacao concluida: ${result.campaignsSynced} campanhas e ${result.metricsSynced} metricas.`);
       await refreshWorkspace();
-      await loadClientSummary(clientId);
+      return await loadClientSummary(clientId);
     } catch (error) {
       window.clearInterval(progressTimer);
       const errorMessage = error instanceof Error ? error.message : "Nao foi possivel sincronizar.";
@@ -839,11 +844,34 @@ export default function Home() {
           : { clientId, percent: 100, label: `Erro: ${errorMessage}`, status: "error" }
       );
       setApiMessage(errorMessage);
+      return null;
     } finally {
       setApiLoading(false);
       window.setTimeout(() => {
         setSyncProgress((current) => current?.clientId === clientId && current.status === "success" ? null : current);
       }, 2400);
+    }
+  }
+
+  async function requestAiAnalysis() {
+    if (!selectedClientId) return;
+    setAiAnalysisRunning(true);
+    setAiRecommendationError("");
+    setApiMessage("Atualizando dados e solicitando analise da IA...");
+    try {
+      const freshSummary = await syncClient(selectedClientId);
+      if (!freshSummary) return;
+      await generateAiRecommendation(freshSummary, freshSummary.totals, buildAiPriorities(
+        freshSummary.campaigns.map((campaign) => {
+          const rows = freshSummary.metrics.filter((row) => row.campaign_external_id === campaign.meta_campaign_id);
+          const totals = calculateTotals(rows);
+          const recommendation = campaignRecommendation(totals, campaign.effective_status ?? campaign.status);
+          return { ...campaign, totals, recommendation: recommendation.text, tone: recommendation.tone };
+        })
+      ));
+      setApiMessage("Analise da IA atualizada.");
+    } finally {
+      setAiAnalysisRunning(false);
     }
   }
 
@@ -1396,7 +1424,9 @@ export default function Home() {
                   <p className="eyebrow">Otimizacao IA</p>
                   <h3>{clientSummary ? clientSummary.client.name : "Diagnostico por cliente"}</h3>
                 </div>
-                <Bot size={22} />
+                <button className="primary-button" onClick={requestAiAnalysis} disabled={!selectedClientId || aiAnalysisRunning || apiLoading || aiRecommendationGenerating}>
+                  <Bot size={18} /> {aiAnalysisRunning ? "Analisando..." : "Solicitar analise"}
+                </button>
               </div>
               <div className="campaigns-controls">
                 <label className="select-field">
@@ -1478,7 +1508,7 @@ export default function Home() {
                           <strong>Gerado em {new Date(aiRecommendation.created_at).toLocaleString("pt-BR")}</strong>
                         ) : null}
                       </div>
-                      <button className="secondary-button" onClick={generateAiRecommendation} disabled={aiRecommendationGenerating}>
+                      <button className="secondary-button" onClick={() => generateAiRecommendation()} disabled={aiRecommendationGenerating}>
                         <Sparkles size={16} />
                         {aiRecommendationGenerating ? "Gerando..." : aiRecommendation ? "Atualizar plano" : "Gerar plano de acao"}
                       </button>

@@ -1067,6 +1067,64 @@ svg {
   font-size: 0.82rem;
 }
 
+.action-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.action-stat-grid div {
+  display: grid;
+  gap: 6px;
+  min-height: 78px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface-soft);
+}
+
+.action-stat-grid span {
+  color: var(--text-dim);
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
+.action-stat-grid strong {
+  font-family: var(--font-display);
+  font-size: 1.3rem;
+  font-weight: 400;
+}
+
+.action-history-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.action-history-item {
+  display: grid;
+  gap: 10px;
+  padding: 13px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface-soft);
+}
+
+.action-history-item strong,
+.action-history-item span,
+.action-history-item small {
+  overflow-wrap: anywhere;
+}
+
+.action-history-item span,
+.action-history-item small {
+  display: block;
+  margin-top: 4px;
+  color: var(--text-dim);
+  font-size: 0.8rem;
+}
+
 .ai-plan {
   display: grid;
   gap: 12px;

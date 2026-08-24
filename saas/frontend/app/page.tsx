@@ -310,6 +310,11 @@ function actionStatusLabel(status?: ActionStatus) {
   return "Pendente";
 }
 
+function actionStatusTimestamp(item: ActionItem) {
+  const date = new Date(item.updated_at);
+  return Number.isNaN(date.getTime()) ? "" : date.toLocaleString("pt-BR");
+}
+
 export default function Home() {
   const [session, setSession] = useState<Session | null>(null);
   const [email, setEmail] = useState("");
@@ -416,6 +421,19 @@ export default function Home() {
     });
     return items;
   }, [actionItems]);
+
+  const actionStats = useMemo(() => {
+    return actionItems.reduce(
+      (stats, item) => {
+        stats.total += 1;
+        stats[item.status] += 1;
+        return stats;
+      },
+      { total: 0, open: 0, approved: 0, rejected: 0, done: 0 } as Record<ActionStatus | "total", number>
+    );
+  }, [actionItems]);
+
+  const latestActionItems = useMemo(() => actionItems.slice(0, 5), [actionItems]);
 
   const selectedCampaignCount = selectedCampaignIds.length;
 
@@ -1379,24 +1397,46 @@ export default function Home() {
             <article className="panel">
               <div className="panel-head">
                 <div>
-                  <p className="eyebrow">Regras</p>
-                  <h3>Motor inicial</h3>
+                  <p className="eyebrow">Central de acoes</p>
+                  <h3>Historico do periodo</h3>
                 </div>
-                <Sparkles size={21} />
+                <CheckCircle2 size={21} />
               </div>
-              <div className="compact-list">
+              <div className="action-stat-grid">
                 <div>
-                  <strong>Escalar</strong>
-                  <span>Custo por resultado baixo e volume consistente.</span>
+                  <span>Pendentes</span>
+                  <strong>{actionStats.open}</strong>
                 </div>
                 <div>
-                  <strong>Revisar</strong>
-                  <span>Gasto com zero resultado ou CTR baixo.</span>
+                  <span>Aprovadas</span>
+                  <strong>{actionStats.approved}</strong>
                 </div>
                 <div>
-                  <strong>Reativar</strong>
-                  <span>Campanha inativa com historico de resultado.</span>
+                  <span>Concluidas</span>
+                  <strong>{actionStats.done}</strong>
                 </div>
+                <div>
+                  <span>Rejeitadas</span>
+                  <strong>{actionStats.rejected}</strong>
+                </div>
+              </div>
+              <div className="action-history-list">
+                {latestActionItems.map((item) => (
+                  <div className="action-history-item" key={item.id}>
+                    <div>
+                      <strong>{item.title}</strong>
+                      <span>{item.campaign_name}</span>
+                    </div>
+                    <div className={`action-status ${item.status}`}>
+                      {item.status === "done" ? <CheckCircle2 size={14} /> : <AlertTriangle size={14} />}
+                      {actionStatusLabel(item.status)}
+                    </div>
+                    <small>{actionStatusTimestamp(item)}</small>
+                  </div>
+                ))}
+                {!latestActionItems.length ? (
+                  <p className="muted compact-muted">As decisoes aprovadas, rejeitadas ou concluidas aparecem aqui.</p>
+                ) : null}
               </div>
             </article>
           </section>

@@ -852,16 +852,26 @@ export default function Home() {
 
   const overviewCreativePreviewRows = useMemo(() => {
     if (!clientSummary) return [];
-    return campaignRows.flatMap((campaign) => {
-      const previews = campaignCreativePreviews(campaign);
-      return previews.slice(0, 2).map((preview) => ({
-        id: preview.ad_id || preview.creative_id || `${campaign.id}-${preview.ad_name}`,
-        title: preview.ad_name || preview.creative_name || "Criativo sem nome",
-        subtitle: preview.adset_name || campaign.name,
-        imageUrl: preview.image_url || preview.thumbnail_url || "",
-        campaign,
-      }));
-    }).slice(0, 4);
+    return campaignRows
+      .flatMap((campaign) => {
+        const previews = campaignCreativePreviews(campaign);
+        return previews.slice(0, 2).map((preview) => ({
+          id: preview.ad_id || preview.creative_id || `${campaign.id}-${preview.ad_name}`,
+          title: preview.ad_name || preview.creative_name || "Criativo sem nome",
+          subtitle: preview.adset_name || campaign.name,
+          imageUrl: preview.image_url || preview.thumbnail_url || "",
+          campaign,
+        }));
+      })
+      .sort((a, b) => {
+        const resultDiff = b.campaign.totals.metaResults - a.campaign.totals.metaResults;
+        if (resultDiff) return resultDiff;
+        const aCost = a.campaign.totals.costPerResult || Number.POSITIVE_INFINITY;
+        const bCost = b.campaign.totals.costPerResult || Number.POSITIVE_INFINITY;
+        if (aCost !== bCost) return aCost - bCost;
+        return b.campaign.totals.spend - a.campaign.totals.spend;
+      })
+      .slice(0, 4);
   }, [campaignRows, clientSummary]);
 
   const optimizationMetrics = useMemo(

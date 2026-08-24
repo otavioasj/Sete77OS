@@ -2222,6 +2222,105 @@ svg {
   line-height: 1.45;
 }
 
+.native-calculator {
+  display: grid;
+  gap: 16px;
+  margin-top: 16px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface-soft);
+}
+
+.native-calculator-head {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.native-calculator-head .select-field {
+  min-width: 240px;
+}
+
+.calculator-input-grid,
+.calculator-result-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.calculator-input-grid label {
+  display: grid;
+  gap: 6px;
+  color: var(--text-dim);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.calculator-input-grid input {
+  min-height: 42px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  padding: 0 12px;
+  outline: 0;
+  font-weight: 700;
+}
+
+.calculator-input-grid input:focus {
+  border-color: var(--flame-2);
+  box-shadow: 0 0 0 4px var(--warning-soft);
+}
+
+.calculator-result-grid div {
+  display: grid;
+  gap: 6px;
+  min-height: 112px;
+  padding: 13px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+
+.calculator-result-grid span,
+.calculator-result-grid small {
+  color: var(--text-dim);
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
+.calculator-result-grid strong {
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  font-weight: 400;
+  overflow-wrap: anywhere;
+}
+
+.calculator-decision {
+  display: grid;
+  gap: 5px;
+  padding: 13px;
+  border: 1px solid var(--line);
+  border-left-width: 4px;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+
+.calculator-decision.green {
+  border-left-color: var(--positive);
+}
+
+.calculator-decision.red {
+  border-left-color: var(--negative);
+}
+
+.calculator-decision span {
+  color: var(--text-dim);
+  line-height: 1.45;
+}
+
 .calculator-frame-wrap {
   margin-top: 16px;
   border: 1px solid var(--line);
@@ -2355,6 +2454,8 @@ svg {
   .command-grid,
   .optimization-metric-grid,
   .calculator-context,
+  .calculator-input-grid,
+  .calculator-result-grid,
   .report-metrics {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -2397,6 +2498,8 @@ svg {
   .command-grid.lower,
   .optimization-metric-grid,
   .calculator-context,
+  .calculator-input-grid,
+  .calculator-result-grid,
   .report-metrics,
   .report-context-grid,
   .settings-form,
@@ -2428,6 +2531,15 @@ svg {
   .optimization-board-head {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .native-calculator-head {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .native-calculator-head .select-field {
+    min-width: 0;
   }
 
   .calculator-frame {

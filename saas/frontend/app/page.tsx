@@ -648,6 +648,14 @@ export default function Home() {
   });
   const [settingsMessage, setSettingsMessage] = useState("");
   const [settingsSaving, setSettingsSaving] = useState(false);
+  const [calculatorForm, setCalculatorForm] = useState({
+    budget: "",
+    cpl: "",
+    ticket: "",
+    closeRate: "10",
+    margin: "30",
+    revenueGoal: "",
+  });
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session));
@@ -879,6 +887,34 @@ export default function Home() {
     }
     return diagnostics.slice(0, 5);
   }, [optimizationMetrics]);
+
+  useEffect(() => {
+    if (!clientSummary) return;
+    setCalculatorForm((current) => ({
+      ...current,
+      budget: String(clientSummary.client.monthly_budget || Math.round(overviewTotals.spend) || ""),
+      cpl: String(clientSummary.client.target_cpl || Math.round(overviewTotals.costPerResult) || ""),
+    }));
+  }, [clientSummary?.client.id]);
+
+  const calculatorResult = useMemo(() => {
+    const budget = decimalInputValue(calculatorForm.budget);
+    const cpl = decimalInputValue(calculatorForm.cpl);
+    const ticket = decimalInputValue(calculatorForm.ticket);
+    const closeRate = decimalInputValue(calculatorForm.closeRate) / 100;
+    const margin = decimalInputValue(calculatorForm.margin) / 100;
+    const revenueGoal = decimalInputValue(calculatorForm.revenueGoal);
+    const expectedLeads = cpl ? budget / cpl : 0;
+    const expectedSales = expectedLeads * closeRate;
+    const expectedRevenue = expectedSales * ticket;
+    const expectedProfit = expectedRevenue * margin - budget;
+    const roas = budget ? expectedRevenue / budget : 0;
+    const breakEvenCpl = ticket && closeRate && margin ? ticket * closeRate * margin : 0;
+    const goalSales = ticket ? revenueGoal / ticket : 0;
+    const goalLeads = closeRate ? goalSales / closeRate : 0;
+    const budgetForGoal = goalLeads * cpl;
+    return { budget, cpl, ticket, closeRate, margin, revenueGoal, expectedLeads, expectedSales, expectedRevenue, expectedProfit, roas, breakEvenCpl, goalSales, goalLeads, budgetForGoal };
+  }, [calculatorForm]);
 
   const aiPriorities = useMemo(() => buildAiPriorities(campaignRows), [campaignRows]);
 
@@ -2439,6 +2475,88 @@ export default function Home() {
               <div>
                 <strong>Fluxo recomendado</strong>
                 <span>Analise metricas, calcule meta viavel e registre a decisao na Central de Acoes.</span>
+              </div>
+            </div>
+            <div className="native-calculator">
+              <div className="native-calculator-head">
+                <div>
+                  <p className="eyebrow">Calculadora Creative</p>
+                  <h3>{clientSummary ? clientSummary.client.name : "Use dados reais de um cliente"}</h3>
+                </div>
+                <label className="select-field">
+                  Cliente
+                  <select value={selectedClientId} onChange={(event) => event.target.value && loadClientSummary(event.target.value)}>
+                    <option value="">Selecione</option>
+                    {clients.map((client) => (
+                      <option value={client.id} key={client.id}>{client.name}</option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              <div className="calculator-input-grid">
+                <label>
+                  Orcamento para midia
+                  <input inputMode="decimal" value={calculatorForm.budget} onChange={(event) => setCalculatorForm((current) => ({ ...current, budget: event.target.value }))} placeholder="0,00" />
+                </label>
+                <label>
+                  CPL esperado
+                  <input inputMode="decimal" value={calculatorForm.cpl} onChange={(event) => setCalculatorForm((current) => ({ ...current, cpl: event.target.value }))} placeholder="0,00" />
+                </label>
+                <label>
+                  Ticket medio
+                  <input inputMode="decimal" value={calculatorForm.ticket} onChange={(event) => setCalculatorForm((current) => ({ ...current, ticket: event.target.value }))} placeholder="0,00" />
+                </label>
+                <label>
+                  Taxa de fechamento %
+                  <input inputMode="decimal" value={calculatorForm.closeRate} onChange={(event) => setCalculatorForm((current) => ({ ...current, closeRate: event.target.value }))} placeholder="10" />
+                </label>
+                <label>
+                  Margem %
+                  <input inputMode="decimal" value={calculatorForm.margin} onChange={(event) => setCalculatorForm((current) => ({ ...current, margin: event.target.value }))} placeholder="30" />
+                </label>
+                <label>
+                  Meta de faturamento
+                  <input inputMode="decimal" value={calculatorForm.revenueGoal} onChange={(event) => setCalculatorForm((current) => ({ ...current, revenueGoal: event.target.value }))} placeholder="0,00" />
+                </label>
+              </div>
+              <div className="calculator-result-grid">
+                <div>
+                  <span>Leads previstos</span>
+                  <strong>{formatNumber(calculatorResult.expectedLeads)}</strong>
+                  <small>orcamento dividido pelo CPL</small>
+                </div>
+                <div>
+                  <span>Vendas previstas</span>
+                  <strong>{formatNumber(calculatorResult.expectedSales)}</strong>
+                  <small>leads x taxa de fechamento</small>
+                </div>
+                <div>
+                  <span>Faturamento previsto</span>
+                  <strong>{formatCurrency(calculatorResult.expectedRevenue)}</strong>
+                  <small>vendas x ticket medio</small>
+                </div>
+                <div>
+                  <span>ROAS previsto</span>
+                  <strong>{calculatorResult.roas.toFixed(2).replace(".", ",")}</strong>
+                  <small>faturamento dividido pela verba</small>
+                </div>
+                <div>
+                  <span>CPL limite</span>
+                  <strong>{formatCurrency(calculatorResult.breakEvenCpl)}</strong>
+                  <small>ponto de equilibrio pela margem</small>
+                </div>
+                <div>
+                  <span>Verba para meta</span>
+                  <strong>{formatCurrency(calculatorResult.budgetForGoal)}</strong>
+                  <small>{formatNumber(calculatorResult.goalLeads)} leads necessarios</small>
+                </div>
+              </div>
+              <div className={`calculator-decision ${calculatorResult.expectedProfit >= 0 ? "green" : "red"}`}>
+                <strong>{calculatorResult.expectedProfit >= 0 ? "Cenario lucrativo" : "Cenario precisa de ajuste"}</strong>
+                <span>
+                  Lucro estimado depois da midia: {formatCurrency(calculatorResult.expectedProfit)}.
+                  {calculatorResult.breakEvenCpl ? ` CPL precisa ficar ate ${formatCurrency(calculatorResult.breakEvenCpl)} para empatar na margem informada.` : " Informe ticket e margem para calcular o CPL limite."}
+                </span>
               </div>
             </div>
             <div className="calculator-frame-wrap">

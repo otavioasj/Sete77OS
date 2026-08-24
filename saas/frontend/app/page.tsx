@@ -652,8 +652,8 @@ export default function Home() {
       setCampaignStatusFilter("all");
       setCampaignSearch("");
       setHistoryOpen(false);
-      void loadAiRecommendation(clientId, preset);
-      void loadActionItems(clientId, preset);
+      await loadAiRecommendation(clientId, preset);
+      await loadActionItems(clientId, preset);
       return data as ClientSummary;
     } catch (error) {
       setApiMessage(error instanceof Error ? error.message : "Nao foi possivel carregar o cliente.");
@@ -860,16 +860,23 @@ export default function Home() {
     setApiMessage("Atualizando dados e solicitando analise da IA...");
     try {
       const freshSummary = await syncClient(selectedClientId);
-      if (!freshSummary) return;
-      await generateAiRecommendation(freshSummary, freshSummary.totals, buildAiPriorities(
-        freshSummary.campaigns.map((campaign) => {
-          const rows = freshSummary.metrics.filter((row) => row.campaign_external_id === campaign.meta_campaign_id);
+      const summaryForAnalysis = freshSummary ?? clientSummary ?? (await loadClientSummary(selectedClientId));
+      if (!summaryForAnalysis) {
+        setAiRecommendationError("Selecione um cliente com dados sincronizados antes de solicitar a analise.");
+        return;
+      }
+      const prioritiesForAnalysis = buildAiPriorities(
+        summaryForAnalysis.campaigns.map((campaign) => {
+          const rows = summaryForAnalysis.metrics.filter((row) => row.campaign_external_id === campaign.meta_campaign_id);
           const totals = calculateTotals(rows);
           const recommendation = campaignRecommendation(totals, campaign.effective_status ?? campaign.status);
           return { ...campaign, totals, recommendation: recommendation.text, tone: recommendation.tone };
         })
-      ));
-      setApiMessage("Analise da IA atualizada.");
+      );
+      const recommendation = await generateAiRecommendation(summaryForAnalysis, summaryForAnalysis.totals, prioritiesForAnalysis);
+      if (recommendation) {
+        setApiMessage("Analise da IA atualizada.");
+      }
     } finally {
       setAiAnalysisRunning(false);
     }

@@ -3082,6 +3082,34 @@ svg {
   grid-column: 1 / -1;
 }
 
+.settings-form label.toggle-field {
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface-soft);
+}
+
+.settings-form label.toggle-field input {
+  width: 18px;
+  min-height: 18px;
+  padding: 0;
+}
+
+.settings-form label.toggle-field span,
+.settings-form label.toggle-field small {
+  display: block;
+}
+
+.settings-form label.toggle-field small {
+  margin-top: 3px;
+  color: var(--text-dim);
+  font-weight: 600;
+}
+
 .settings-form input,
 .settings-form textarea {
   width: 100%;

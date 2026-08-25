@@ -30,6 +30,10 @@ class ClientUpdate(BaseModel):
     account_manager: str | None = Field(default=None, max_length=120)
     business_goal: str | None = Field(default=None, max_length=240)
     qualified_lead_definition: str | None = Field(default=None, max_length=600)
+    whatsapp_number: str | None = Field(default=None, max_length=40)
+    whatsapp_connected: bool | None = None
+    whatsapp_real_numbers: int | None = Field(default=None, ge=0)
+    whatsapp_notes: str | None = Field(default=None, max_length=600)
 
 
 def _default_slug(user: CurrentUser) -> str:

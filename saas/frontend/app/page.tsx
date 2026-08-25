@@ -63,6 +63,10 @@ type ClientRecord = {
   account_manager?: string | null;
   business_goal?: string | null;
   qualified_lead_definition?: string | null;
+  whatsapp_number?: string | null;
+  whatsapp_connected?: boolean | null;
+  whatsapp_real_numbers?: number | null;
+  whatsapp_notes?: string | null;
   created_at: string;
 };
 
@@ -850,6 +854,10 @@ export default function Home() {
     account_manager: "",
     business_goal: "",
     qualified_lead_definition: "",
+    whatsapp_number: "",
+    whatsapp_connected: false,
+    whatsapp_real_numbers: "",
+    whatsapp_notes: "",
   });
   const [settingsMessage, setSettingsMessage] = useState("");
   const [settingsSaving, setSettingsSaving] = useState(false);
@@ -1278,6 +1286,10 @@ export default function Home() {
       account_manager: selectedClient.account_manager ?? "",
       business_goal: selectedClient.business_goal ?? "",
       qualified_lead_definition: selectedClient.qualified_lead_definition ?? "",
+      whatsapp_number: selectedClient.whatsapp_number ?? "",
+      whatsapp_connected: Boolean(selectedClient.whatsapp_connected),
+      whatsapp_real_numbers: String(selectedClient.whatsapp_real_numbers ?? ""),
+      whatsapp_notes: selectedClient.whatsapp_notes ?? "",
     });
     setSettingsMessage("");
   }, [selectedClient]);
@@ -1546,6 +1558,10 @@ export default function Home() {
         account_manager: settingsForm.account_manager.trim(),
         business_goal: settingsForm.business_goal.trim(),
         qualified_lead_definition: settingsForm.qualified_lead_definition.trim(),
+        whatsapp_number: settingsForm.whatsapp_number.trim(),
+        whatsapp_connected: settingsForm.whatsapp_connected,
+        whatsapp_real_numbers: Math.max(0, Math.floor(decimalInputValue(settingsForm.whatsapp_real_numbers))),
+        whatsapp_notes: settingsForm.whatsapp_notes.trim(),
       };
       const data = await apiFetch(`/clients/${selectedClientId}`, {
         method: "PATCH",
@@ -2363,6 +2379,41 @@ export default function Home() {
                   <small>{(displayedTotals?.clicks ?? 0).toLocaleString("pt-BR")} cliques</small>
                 </article>
               </div>
+            </article>
+
+            <article className="panel">
+              <div className="panel-head">
+                <div>
+                  <p className="eyebrow">WhatsApp</p>
+                  <h3>{clientSummary.client.whatsapp_connected ? "Conectado ao cliente" : "Nao conectado"}</h3>
+                </div>
+                <PlugZap size={21} />
+              </div>
+              <div className="settings-summary">
+                <div>
+                  <span>Numero de atendimento</span>
+                  <strong>{clientSummary.client.whatsapp_number || "Nao informado"}</strong>
+                </div>
+                <div>
+                  <span>Conversas pela Meta</span>
+                  <strong>{formatNumber(displayedTotals?.conversations ?? 0)}</strong>
+                  <p>Quantidade atribuida nas campanhas que levam para mensagens.</p>
+                </div>
+                <div>
+                  <span>Numeros que entraram de verdade</span>
+                  <strong>{formatNumber(clientSummary.client.whatsapp_real_numbers ?? 0)}</strong>
+                  <p>Conferencia manual do atendimento/CRM do cliente.</p>
+                </div>
+                <div>
+                  <span>Diferenca</span>
+                  <strong>{formatNumber((displayedTotals?.conversations ?? 0) - (clientSummary.client.whatsapp_real_numbers ?? 0))}</strong>
+                  <p>{(displayedTotals?.conversations ?? 0) >= (clientSummary.client.whatsapp_real_numbers ?? 0) ? "Meta registrou mais conversas do que numeros conferidos." : "Entraram mais numeros do que a Meta atribuiu."}</p>
+                </div>
+              </div>
+              {clientSummary.client.whatsapp_notes ? <p className="muted compact-muted">{clientSummary.client.whatsapp_notes}</p> : null}
+              <button className="ghost-button" onClick={() => setActiveView("Configuracoes")}>
+                <Settings size={17} /> Configurar WhatsApp
+              </button>
             </article>
 
             <article className="panel">
@@ -3542,6 +3593,34 @@ export default function Home() {
                       placeholder="0,00"
                     />
                   </label>
+                  <label>
+                    WhatsApp do atendimento
+                    <input
+                      value={settingsForm.whatsapp_number}
+                      onChange={(event) => setSettingsForm((current) => ({ ...current, whatsapp_number: event.target.value }))}
+                      placeholder="Ex.: (11) 99999-9999"
+                    />
+                  </label>
+                  <label>
+                    Numeros reais que entraram
+                    <input
+                      inputMode="numeric"
+                      value={settingsForm.whatsapp_real_numbers}
+                      onChange={(event) => setSettingsForm((current) => ({ ...current, whatsapp_real_numbers: event.target.value }))}
+                      placeholder="0"
+                    />
+                  </label>
+                  <label className="toggle-field">
+                    <input
+                      type="checkbox"
+                      checked={settingsForm.whatsapp_connected}
+                      onChange={(event) => setSettingsForm((current) => ({ ...current, whatsapp_connected: event.target.checked }))}
+                    />
+                    <span>
+                      WhatsApp conectado ao cliente
+                      <small>Usar conversas da Meta para comparar com os numeros reais do atendimento.</small>
+                    </span>
+                  </label>
                   <label className="full">
                     Objetivo comercial
                     <input
@@ -3556,6 +3635,14 @@ export default function Home() {
                       value={settingsForm.qualified_lead_definition}
                       onChange={(event) => setSettingsForm((current) => ({ ...current, qualified_lead_definition: event.target.value }))}
                       placeholder="Descreva o que diferencia um lead bom de um lead ruim para este cliente."
+                    />
+                  </label>
+                  <label className="full">
+                    Observacoes do WhatsApp
+                    <textarea
+                      value={settingsForm.whatsapp_notes}
+                      onChange={(event) => setSettingsForm((current) => ({ ...current, whatsapp_notes: event.target.value }))}
+                      placeholder="Ex.: conferir numeros que mandaram mensagem, leads duplicados, atendimento fora do horario..."
                     />
                   </label>
                   <div className="settings-actions full">

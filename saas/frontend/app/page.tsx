@@ -65,6 +65,9 @@ type ClientRecord = {
   qualified_lead_definition?: string | null;
   whatsapp_number?: string | null;
   whatsapp_connected?: boolean | null;
+  whatsapp_connection_mode?: "manual" | "official_api" | string | null;
+  whatsapp_phone_number_id?: string | null;
+  whatsapp_business_account_id?: string | null;
   whatsapp_real_numbers?: number | null;
   whatsapp_notes?: string | null;
   created_at: string;
@@ -856,6 +859,9 @@ export default function Home() {
     qualified_lead_definition: "",
     whatsapp_number: "",
     whatsapp_connected: false,
+    whatsapp_connection_mode: "manual",
+    whatsapp_phone_number_id: "",
+    whatsapp_business_account_id: "",
     whatsapp_real_numbers: "",
     whatsapp_notes: "",
   });
@@ -1288,6 +1294,9 @@ export default function Home() {
       qualified_lead_definition: selectedClient.qualified_lead_definition ?? "",
       whatsapp_number: selectedClient.whatsapp_number ?? "",
       whatsapp_connected: Boolean(selectedClient.whatsapp_connected),
+      whatsapp_connection_mode: selectedClient.whatsapp_connection_mode ?? "manual",
+      whatsapp_phone_number_id: selectedClient.whatsapp_phone_number_id ?? "",
+      whatsapp_business_account_id: selectedClient.whatsapp_business_account_id ?? "",
       whatsapp_real_numbers: String(selectedClient.whatsapp_real_numbers ?? ""),
       whatsapp_notes: selectedClient.whatsapp_notes ?? "",
     });
@@ -1560,6 +1569,9 @@ export default function Home() {
         qualified_lead_definition: settingsForm.qualified_lead_definition.trim(),
         whatsapp_number: settingsForm.whatsapp_number.trim(),
         whatsapp_connected: settingsForm.whatsapp_connected,
+        whatsapp_connection_mode: settingsForm.whatsapp_connection_mode,
+        whatsapp_phone_number_id: settingsForm.whatsapp_phone_number_id.trim(),
+        whatsapp_business_account_id: settingsForm.whatsapp_business_account_id.trim(),
         whatsapp_real_numbers: Math.max(0, Math.floor(decimalInputValue(settingsForm.whatsapp_real_numbers))),
         whatsapp_notes: settingsForm.whatsapp_notes.trim(),
       };
@@ -2393,6 +2405,11 @@ export default function Home() {
                 <div>
                   <span>Numero de atendimento</span>
                   <strong>{clientSummary.client.whatsapp_number || "Nao informado"}</strong>
+                </div>
+                <div>
+                  <span>Forma de conexao</span>
+                  <strong>{clientSummary.client.whatsapp_connection_mode === "official_api" ? "Com API oficial" : "Sem API oficial"}</strong>
+                  <p>{clientSummary.client.whatsapp_connection_mode === "official_api" ? "Preparado para usar Phone Number ID e WABA quando ativarmos a Cloud API." : "Comparacao manual com as conversas vindas da Meta Ads."}</p>
                 </div>
                 <div>
                   <span>Conversas pela Meta</span>
@@ -3602,6 +3619,16 @@ export default function Home() {
                     />
                   </label>
                   <label>
+                    Forma de conexao WhatsApp
+                    <select
+                      value={settingsForm.whatsapp_connection_mode}
+                      onChange={(event) => setSettingsForm((current) => ({ ...current, whatsapp_connection_mode: event.target.value as "manual" | "official_api" }))}
+                    >
+                      <option value="manual">Sem API oficial</option>
+                      <option value="official_api">Com API oficial</option>
+                    </select>
+                  </label>
+                  <label>
                     Numeros reais que entraram
                     <input
                       inputMode="numeric"
@@ -3610,6 +3637,26 @@ export default function Home() {
                       placeholder="0"
                     />
                   </label>
+                  {settingsForm.whatsapp_connection_mode === "official_api" ? (
+                    <>
+                      <label>
+                        Phone Number ID
+                        <input
+                          value={settingsForm.whatsapp_phone_number_id}
+                          onChange={(event) => setSettingsForm((current) => ({ ...current, whatsapp_phone_number_id: event.target.value }))}
+                          placeholder="ID do numero na Cloud API"
+                        />
+                      </label>
+                      <label>
+                        WABA ID
+                        <input
+                          value={settingsForm.whatsapp_business_account_id}
+                          onChange={(event) => setSettingsForm((current) => ({ ...current, whatsapp_business_account_id: event.target.value }))}
+                          placeholder="ID da conta WhatsApp Business"
+                        />
+                      </label>
+                    </>
+                  ) : null}
                   <label className="toggle-field">
                     <input
                       type="checkbox"

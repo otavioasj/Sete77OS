@@ -32,6 +32,9 @@ class ClientUpdate(BaseModel):
     qualified_lead_definition: str | None = Field(default=None, max_length=600)
     whatsapp_number: str | None = Field(default=None, max_length=40)
     whatsapp_connected: bool | None = None
+    whatsapp_connection_mode: str | None = Field(default=None, max_length=20)
+    whatsapp_phone_number_id: str | None = Field(default=None, max_length=80)
+    whatsapp_business_account_id: str | None = Field(default=None, max_length=80)
     whatsapp_real_numbers: int | None = Field(default=None, ge=0)
     whatsapp_notes: str | None = Field(default=None, max_length=600)
 
@@ -157,6 +160,11 @@ def update_client(
     data = payload.model_dump(exclude_unset=True)
     if not data:
         raise HTTPException(status_code=400, detail="Nenhuma alteracao enviada.")
+    if "whatsapp_connection_mode" in data:
+        mode = data.get("whatsapp_connection_mode") or "manual"
+        if mode not in {"manual", "official_api"}:
+            raise HTTPException(status_code=400, detail="Modo de WhatsApp invalido.")
+        data["whatsapp_connection_mode"] = mode
 
     data["updated_at"] = datetime.now(UTC).isoformat()
     try:

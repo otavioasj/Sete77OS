@@ -24,7 +24,10 @@ def whatsapp_status(user: Annotated[CurrentUser, Depends(get_current_user)]) -> 
     )
     clients = (
         admin.table("clients")
-        .select("id,name,whatsapp_number,whatsapp_connected,whatsapp_real_numbers,whatsapp_notes,meta_ad_account_id")
+        .select(
+            "id,name,whatsapp_number,whatsapp_connected,whatsapp_connection_mode,"
+            "whatsapp_phone_number_id,whatsapp_business_account_id,whatsapp_real_numbers,whatsapp_notes,meta_ad_account_id"
+        )
         .eq("owner_id", user.id)
         .execute()
     )
@@ -41,14 +44,17 @@ def whatsapp_status(user: Annotated[CurrentUser, Depends(get_current_user)]) -> 
                 "client_name": client.get("name"),
                 "display_phone_number": client.get("whatsapp_number") or "",
                 "verified_name": client.get("name") or "",
-                "quality_rating": "MANUAL",
+                "quality_rating": "API" if client.get("whatsapp_connection_mode") == "official_api" else "MANUAL",
                 "code_verification_status": "CONNECTED" if client.get("whatsapp_connected") else "PENDING",
+                "connection_mode": client.get("whatsapp_connection_mode") or "manual",
+                "phone_number_id": client.get("whatsapp_phone_number_id") or "",
+                "waba_id": client.get("whatsapp_business_account_id") or "",
             }
             for client in connected_clients
         ],
         "pages": [],
         "linkedClients": connected_clients,
-        "message": "WhatsApp agora e conectado por cliente. Configure o numero e compare conversas da Meta com numeros reais do atendimento.",
+        "message": "WhatsApp pode ser configurado por cliente sem API oficial ou preparado com IDs da Cloud API oficial.",
     }
 
 
@@ -62,5 +68,5 @@ def refresh_whatsapp_assets(user: Annotated[CurrentUser, Depends(get_current_use
         "phoneNumbersSynced": len(status.get("phoneNumbers", [])),
         "businessAccounts": [],
         "phoneNumbers": status.get("phoneNumbers", []),
-        "message": "WhatsApp configurado por cliente. Atualize os numeros reais em Configuracoes.",
+        "message": "WhatsApp configurado por cliente. Ajuste o modo manual/API oficial e os numeros reais em Configuracoes.",
     }

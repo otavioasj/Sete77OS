@@ -24,6 +24,9 @@ alter table public.clients add column if not exists business_goal text not null 
 alter table public.clients add column if not exists qualified_lead_definition text not null default '';
 alter table public.clients add column if not exists whatsapp_number text not null default '';
 alter table public.clients add column if not exists whatsapp_connected boolean not null default false;
+alter table public.clients add column if not exists whatsapp_connection_mode text not null default 'manual';
+alter table public.clients add column if not exists whatsapp_phone_number_id text not null default '';
+alter table public.clients add column if not exists whatsapp_business_account_id text not null default '';
 alter table public.clients add column if not exists whatsapp_real_numbers integer not null default 0;
 alter table public.clients add column if not exists whatsapp_notes text not null default '';
 alter table public.clients add column if not exists created_at timestamptz not null default now();

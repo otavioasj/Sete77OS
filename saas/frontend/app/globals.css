@@ -3111,6 +3111,7 @@ svg {
 }
 
 .settings-form input,
+.settings-form select,
 .settings-form textarea {
   width: 100%;
   border: 1px solid var(--line);
@@ -3122,7 +3123,8 @@ svg {
   font-weight: 600;
 }
 
-.settings-form input {
+.settings-form input,
+.settings-form select {
   min-height: 44px;
 }
 
@@ -3133,6 +3135,7 @@ svg {
 }
 
 .settings-form input:focus,
+.settings-form select:focus,
 .settings-form textarea:focus {
   border-color: var(--flame-2);
   box-shadow: 0 0 0 4px var(--warning-soft);

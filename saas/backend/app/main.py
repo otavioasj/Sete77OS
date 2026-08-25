@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .config import get_settings
-from .routes import actions, clients, health, meta, optimize, overview
+from .routes import actions, clients, google, health, meta, optimize, overview, whatsapp
 
 
 settings = get_settings()
@@ -23,5 +23,7 @@ app.include_router(health.router)
 app.include_router(overview.router)
 app.include_router(clients.router)
 app.include_router(meta.router)
+app.include_router(google.router)
+app.include_router(whatsapp.router)
 app.include_router(optimize.router)
 app.include_router(actions.router)

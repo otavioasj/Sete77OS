@@ -78,11 +78,41 @@ create table if not exists public.meta_pages (
   unique (owner_id, meta_page_id)
 );
 
+create table if not exists public.google_ads_connections (
+  id uuid primary key default gen_random_uuid(),
+  owner_id uuid not null,
+  google_user_id text not null default '',
+  google_user_email text not null default '',
+  access_token text not null,
+  refresh_token text not null default '',
+  scopes text[] not null default '{}',
+  expires_at timestamptz,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (owner_id, google_user_id)
+);
+
+create table if not exists public.google_ads_customer_accounts (
+  id uuid primary key default gen_random_uuid(),
+  owner_id uuid not null,
+  customer_id text not null,
+  descriptive_name text not null default '',
+  currency_code text,
+  time_zone text,
+  manager boolean not null default false,
+  raw jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (owner_id, customer_id)
+);
+
 alter table public.clients enable row level security;
 alter table public.meta_connections enable row level security;
 alter table public.meta_businesses enable row level security;
 alter table public.meta_ad_accounts enable row level security;
 alter table public.meta_pages enable row level security;
+alter table public.google_ads_connections enable row level security;
+alter table public.google_ads_customer_accounts enable row level security;
 
 drop policy if exists "clients_owner_select" on public.clients;
 create policy "clients_owner_select" on public.clients
@@ -108,9 +138,17 @@ drop policy if exists "meta_pages_owner_select" on public.meta_pages;
 create policy "meta_pages_owner_select" on public.meta_pages
   for select using (auth.uid() = owner_id);
 
+drop policy if exists "google_ads_customer_accounts_owner_select" on public.google_ads_customer_accounts;
+create policy "google_ads_customer_accounts_owner_select" on public.google_ads_customer_accounts
+  for select using (auth.uid() = owner_id);
+
 -- Tokens ficam acessiveis apenas via service role no backend.
 drop policy if exists "meta_connections_no_client_access" on public.meta_connections;
 create policy "meta_connections_no_client_access" on public.meta_connections
+  for select using (false);
+
+drop policy if exists "google_ads_connections_no_client_access" on public.google_ads_connections;
+create policy "google_ads_connections_no_client_access" on public.google_ads_connections
   for select using (false);
 
 alter table public.campaigns add column if not exists owner_id uuid;

@@ -72,6 +72,22 @@ type MetaAssets = {
   pages: MetaPage[];
 };
 
+type GoogleAdsStatus = {
+  configured: boolean;
+  connected: boolean;
+  missing: string[];
+  connection?: { google_user_email?: string; created_at?: string } | null;
+  accounts: { customer_id: string; descriptive_name: string; currency_code?: string; time_zone?: string; manager?: boolean }[];
+};
+
+type WhatsAppStatus = {
+  connected: boolean;
+  source: string;
+  pages: { meta_page_id: string; name: string; category?: string; instagram_username?: string }[];
+  linkedClients: { id: string; name: string; meta_page_id?: string | null }[];
+  message: string;
+};
+
 type CampaignMetric = {
   campaign_external_id?: string | null;
   campaign_name?: string | null;
@@ -255,8 +271,8 @@ const leadReportGranularityLabels: Record<LeadReportGranularity, string> = {
 };
 
 const metrics: Metric[] = [
-  { label: "Investimento monitorado", value: "R$ 0,00", helper: "aguardando Meta Ads", tone: "blue" },
-  { label: "Leads rastreados", value: "0", helper: "WhatsApp e formularios", tone: "green" },
+  { label: "Investimento monitorado", value: "R$ 0,00", helper: "Meta Ads e Google Ads", tone: "blue" },
+  { label: "Leads rastreados", value: "0", helper: "WhatsApp, formularios e eventos", tone: "green" },
   { label: "CPL medio", value: "R$ 0,00", helper: "meta por cliente", tone: "amber" },
   { label: "Risco de desperdicio", value: "0", helper: "sem campanhas conectadas", tone: "red" }
 ];
@@ -767,6 +783,8 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [clients, setClients] = useState<ClientRecord[]>([]);
   const [assets, setAssets] = useState<MetaAssets | null>(null);
+  const [googleAdsStatus, setGoogleAdsStatus] = useState<GoogleAdsStatus | null>(null);
+  const [whatsappStatus, setWhatsappStatus] = useState<WhatsAppStatus | null>(null);
   const [apiMessage, setApiMessage] = useState("");
   const [apiLoading, setApiLoading] = useState(false);
   const [activeView, setActiveView] = useState("Visao geral");
@@ -1316,11 +1334,17 @@ export default function Home() {
     setApiLoading(true);
     setApiMessage("");
     try {
-      const [clientsData, assetsData] = await Promise.all([
+      const [clientsData, assetsData, googleData, whatsappData] = await Promise.all([
         fetch("/api/clients", {
           headers: { Authorization: `Bearer ${activeSession.access_token}` }
         }).then((response) => response.json()),
         fetch("/api/meta/assets", {
+          headers: { Authorization: `Bearer ${activeSession.access_token}` }
+        }).then((response) => response.json()),
+        fetch("/api/google-ads/status", {
+          headers: { Authorization: `Bearer ${activeSession.access_token}` }
+        }).then((response) => response.json()),
+        fetch("/api/whatsapp/status", {
           headers: { Authorization: `Bearer ${activeSession.access_token}` }
         }).then((response) => response.json())
       ]);
@@ -1330,6 +1354,20 @@ export default function Home() {
         businesses: assetsData.businesses ?? [],
         adAccounts: assetsData.adAccounts ?? [],
         pages: assetsData.pages ?? []
+      });
+      setGoogleAdsStatus({
+        configured: Boolean(googleData.configured),
+        connected: Boolean(googleData.connected),
+        missing: googleData.missing ?? [],
+        connection: googleData.connection ?? null,
+        accounts: googleData.accounts ?? [],
+      });
+      setWhatsappStatus({
+        connected: Boolean(whatsappData.connected),
+        source: whatsappData.source ?? "meta",
+        pages: whatsappData.pages ?? [],
+        linkedClients: whatsappData.linkedClients ?? [],
+        message: whatsappData.message ?? "",
       });
     } catch (error) {
       setApiMessage(error instanceof Error ? error.message : "Nao foi possivel carregar dados.");
@@ -1346,6 +1384,18 @@ export default function Home() {
       window.location.href = data.url;
     } catch (error) {
       setApiMessage(error instanceof Error ? error.message : "Nao foi possivel iniciar conexao Meta.");
+      setApiLoading(false);
+    }
+  }
+
+  async function connectGoogleAds() {
+    setApiLoading(true);
+    setApiMessage("");
+    try {
+      const data = await apiFetch("/google-ads/oauth/start");
+      window.location.href = data.url;
+    } catch (error) {
+      setApiMessage(error instanceof Error ? error.message : "Nao foi possivel iniciar conexao Google Ads.");
       setApiLoading(false);
     }
   }
@@ -1786,7 +1836,7 @@ export default function Home() {
           <p className="eyebrow">CREATIVE ADS</p>
           <h1>O painel de decisao para gestor de trafego vender mais tempo.</h1>
           <p className="auth-copy">
-            Conecte Meta Ads e IA em um fluxo simples: sincronizacao de campanhas, diagnostico, recomendacao, relatorio e acao.
+            Conecte Meta Ads, Google Ads, WhatsApp e IA em um fluxo simples: diagnostico, recomendacao, relatorio e acao.
           </p>
           <div className="auth-proof">
             <span><ShieldCheck size={18} /> Supabase conectado</span>
@@ -2366,6 +2416,64 @@ export default function Home() {
                   <p className="muted compact-muted">Lista recolhida. Use a busca e abra quando quiser selecionar uma conta.</p>
                 )}
               </>
+            )}
+          </article>
+
+          <article className="panel integration-card">
+            <div className="panel-head">
+              <div>
+                <p className="eyebrow">Google Ads</p>
+                <h3>{googleAdsStatus?.connected ? "Conectado" : googleAdsStatus?.configured ? "Pronto para conectar" : "Aguardando chaves"}</h3>
+              </div>
+              <BarChart3 size={21} />
+            </div>
+            <div className="integration-status-list">
+              <div>
+                <strong>{googleAdsStatus?.accounts.length ?? 0}</strong>
+                <span>contas Google Ads</span>
+              </div>
+              <div>
+                <strong>{googleAdsStatus?.connection?.google_user_email || "Sem usuario"}</strong>
+                <span>{googleAdsStatus?.connected ? "OAuth ativo" : "OAuth pendente"}</span>
+              </div>
+            </div>
+            {googleAdsStatus?.missing?.length ? (
+              <p className="muted">Falta configurar no servidor: {googleAdsStatus.missing.join(", ")}.</p>
+            ) : (
+              <p className="muted">Conexao preparada para importar investimento, cliques, conversoes e custo por resultado do Google Ads.</p>
+            )}
+            <button className="ghost-button" onClick={connectGoogleAds} disabled={apiLoading || !googleAdsStatus?.configured}>
+              <PlugZap size={17} /> {googleAdsStatus?.connected ? "Reconectar Google Ads" : "Conectar Google Ads"}
+            </button>
+          </article>
+
+          <article className="panel integration-card">
+            <div className="panel-head">
+              <div>
+                <p className="eyebrow">WhatsApp</p>
+                <h3>{whatsappStatus?.connected ? "Ligado a Meta" : "Aguardando Meta"}</h3>
+              </div>
+              <PlugZap size={21} />
+            </div>
+            <div className="integration-status-list">
+              <div>
+                <strong>{whatsappStatus?.pages.length ?? assets?.pages.length ?? 0}</strong>
+                <span>paginas conectadas</span>
+              </div>
+              <div>
+                <strong>{displayedTotals?.conversations ?? clientSummary?.totals.conversations ?? 0}</strong>
+                <span>conversas no periodo</span>
+              </div>
+            </div>
+            <p className="muted">{whatsappStatus?.message || "As conversas de WhatsApp aparecem quando a campanha usa mensagens como destino."}</p>
+            {!assets?.connected ? (
+              <button className="ghost-button" onClick={connectMeta} disabled={apiLoading}>
+                <PlugZap size={17} /> Conectar pela Meta
+              </button>
+            ) : (
+              <button className="ghost-button" onClick={() => void refreshWorkspace()} disabled={apiLoading}>
+                <Activity size={17} /> Atualizar canais
+              </button>
             )}
           </article>
 

@@ -416,6 +416,50 @@ async def list_meta_assets(user: Annotated[CurrentUser, Depends(get_current_user
         fields="id,name,category,access_token,instagram_business_account{id,username,name}",
     )
     ad_accounts = _merge_ad_accounts([*direct_ad_accounts, *business_ad_accounts])
+    for business in businesses:
+        if business.get("id") and business.get("name"):
+            admin.table("meta_businesses").upsert(
+                {
+                    "owner_id": connection.data[0]["owner_id"],
+                    "meta_business_id": business.get("id"),
+                    "name": business.get("name"),
+                    "verification_status": business.get("verification_status"),
+                    "raw": business,
+                },
+                on_conflict="owner_id,meta_business_id",
+            ).execute()
+    for account in ad_accounts:
+        if account.get("id") and account.get("name"):
+            business = account.get("business") if isinstance(account.get("business"), dict) else {}
+            admin.table("meta_ad_accounts").upsert(
+                {
+                    "owner_id": connection.data[0]["owner_id"],
+                    "meta_ad_account_id": account.get("id"),
+                    "account_id": account.get("account_id"),
+                    "name": account.get("name"),
+                    "account_status": account.get("account_status"),
+                    "currency": account.get("currency"),
+                    "timezone_name": account.get("timezone_name"),
+                    "business_id": business.get("id"),
+                    "raw": account,
+                },
+                on_conflict="owner_id,meta_ad_account_id",
+            ).execute()
+    for page in pages.get("data", []):
+        instagram = page.get("instagram_business_account") if isinstance(page.get("instagram_business_account"), dict) else {}
+        if page.get("id") and page.get("name"):
+            admin.table("meta_pages").upsert(
+                {
+                    "owner_id": connection.data[0]["owner_id"],
+                    "meta_page_id": page.get("id"),
+                    "name": page.get("name"),
+                    "category": page.get("category"),
+                    "meta_instagram_account_id": instagram.get("id"),
+                    "instagram_username": instagram.get("username") or instagram.get("name"),
+                    "raw": page,
+                },
+                on_conflict="owner_id,meta_page_id",
+            ).execute()
 
     return {
         "ok": True,

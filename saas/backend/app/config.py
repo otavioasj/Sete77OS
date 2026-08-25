@@ -30,6 +30,11 @@ class Settings(BaseSettings):
     meta_oauth_scopes: str = (
         "ads_read,ads_management,business_management,pages_show_list,pages_read_engagement"
     )
+    google_ads_client_id: str = ""
+    google_ads_client_secret: str = ""
+    google_ads_developer_token: str = ""
+    google_ads_login_customer_id: str = ""
+    google_ads_oauth_scopes: str = "https://www.googleapis.com/auth/adwords"
     cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000,https://ads.creativeagenciamkt.com.br"
 
     model_config = SettingsConfigDict(env_file=ROOT / ".env", extra="ignore")
@@ -41,6 +46,10 @@ class Settings(BaseSettings):
     @property
     def meta_scope_list(self) -> list[str]:
         return [scope.strip() for scope in self.meta_oauth_scopes.split(",") if scope.strip()]
+
+    @property
+    def google_ads_scope_list(self) -> list[str]:
+        return [scope.strip() for scope in self.google_ads_oauth_scopes.split(",") if scope.strip()]
 
 
 @lru_cache

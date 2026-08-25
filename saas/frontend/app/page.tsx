@@ -183,7 +183,7 @@ type ActionItem = {
   updated_at: string;
 };
 
-type ReportType = "executive" | "leads" | "campaigns" | "creative" | "platform";
+type ReportType = "executive" | "teams" | "custom" | "leads" | "campaigns" | "creative" | "platform";
 
 type ReportTableRow = {
   label: string;
@@ -223,6 +223,8 @@ const datePresetLabels: Record<DatePreset, string> = {
 
 const reportTypeLabels: Record<ReportType, string> = {
   executive: "Executivo",
+  teams: "Times",
+  custom: "Personalizado",
   leads: "Leads",
   campaigns: "Campanhas",
   creative: "Criativos",
@@ -506,7 +508,7 @@ function campaignCreativePreviews(campaign: ClientSummary["campaigns"][number]):
 }
 
 function reportTableToCsv(rows: ReportTableRow[]) {
-  const header = ["Nome", "Detalhe", "Investimento", "Leads", "Resultados", "Tipo de resultado", "Cliques", "Impressoes", "Custo por resultado", "CPL", "CTR", "CPM"];
+  const header = ["Nome", "Detalhe", "Investimento (R$)", "Leads", "Resultados", "Tipo de resultado", "Cliques", "Impressoes", "Custo por resultado (R$)", "CPL (R$)", "CTR (%)", "CPM (R$)"];
   const body = rows.map((row) => [
     row.label,
     row.secondary ?? "",
@@ -524,8 +526,41 @@ function reportTableToCsv(rows: ReportTableRow[]) {
   return [header, ...body].map((line) => line.map(csvEscape).join(";")).join("\n");
 }
 
+function teamsReportToCsv(rows: ReportTableRow[], totalSpend: number) {
+  const header = ["Time", "Investimento (R$)", "Leads", "CPL (R$)", "% Investimento"];
+  const body = rows.map((row) => [
+    row.label,
+    excelNumber(row.spend),
+    row.leads,
+    excelNumber(row.cpl || row.costPerResult),
+    excelNumber(totalSpend ? (row.spend / totalSpend) * 100 : 0),
+  ]);
+  const totals = [
+    "TOTAL",
+    excelNumber(totalSpend),
+    rows.reduce((total, row) => total + numberValue(row.leads), 0),
+    excelNumber(rows.reduce((total, row) => total + numberValue(row.leads), 0) ? totalSpend / rows.reduce((total, row) => total + numberValue(row.leads), 0) : 0),
+    "100,00",
+  ];
+  return [header, ...body, totals].map((line) => line.map(csvEscape).join(";")).join("\n");
+}
+
+function reportCsvEnvelope(title: string, clientName: string, period: string, body: string, customRequest = "") {
+  const lines = [
+    ["CREATIVE ADS"],
+    [title],
+    ["Cliente", clientName],
+    ["Periodo", period],
+    ["Gerado em", new Date().toLocaleDateString("pt-BR")],
+  ];
+  if (customRequest.trim()) {
+    lines.push(["Solicitacao personalizada", customRequest.trim()]);
+  }
+  return `${lines.map((line) => line.map(csvEscape).join(";")).join("\n")}\n\n${body}`;
+}
+
 function leadsReportToCsv(rows: ClientSummary["metrics"], campaigns: ClientSummary["campaigns"]) {
-  const header = ["Data", "Campanha", "Leads", "Conversas", "Resultados", "Investimento", "Custo por resultado", "Cliques", "Impressoes"];
+  const header = ["Data", "Campanha", "Leads", "Conversas", "Resultados", "Investimento (R$)", "Custo por resultado (R$)", "Cliques", "Impressoes"];
   const body = rows
     .map((row) => {
       const totals = calculateTotals([row]);
@@ -665,6 +700,7 @@ export default function Home() {
   const [customSince, setCustomSince] = useState("");
   const [customUntil, setCustomUntil] = useState("");
   const [reportType, setReportType] = useState<ReportType>("executive");
+  const [customReportRequest, setCustomReportRequest] = useState("");
   const [aiRecommendation, setAiRecommendation] = useState<AiRecommendation | null>(null);
   const [aiRecommendationLoading, setAiRecommendationLoading] = useState(false);
   const [aiRecommendationGenerating, setAiRecommendationGenerating] = useState(false);
@@ -790,6 +826,22 @@ export default function Home() {
 
   const reportRows = useMemo<ReportTableRow[]>(() => {
     if (!clientSummary) return [];
+    if (reportType === "teams" || reportType === "custom") {
+      return campaignRows.map((campaign) => ({
+        label: campaign.name,
+        secondary: campaign.recommendation,
+        spend: campaign.totals.spend,
+        leads: campaign.totals.leads,
+        results: campaign.totals.metaResults,
+        resultLabel: campaign.totals.resultLabel,
+        clicks: campaign.totals.clicks,
+        impressions: campaign.totals.impressions,
+        costPerResult: campaign.totals.costPerResult,
+        cpl: campaign.totals.cpl,
+        ctr: campaign.totals.ctr,
+        cpm: campaign.totals.cpm,
+      })).sort((a, b) => b.spend - a.spend || b.results - a.results);
+    }
     if (reportType === "campaigns") {
       return aggregateMetricRows(displayedMetricRows, (row) => campaignNameForMetric(row, clientSummary.campaigns));
     }
@@ -804,7 +856,7 @@ export default function Home() {
       return aggregateMetricRows(displayedMetricRows, (row) => (row.platform === "meta_ads" ? "Meta Ads" : row.platform || "Plataforma nao informada"));
     }
     return [];
-  }, [clientSummary, displayedMetricRows, reportType]);
+  }, [campaignRows, clientSummary, displayedMetricRows, reportType]);
 
   const reportInsight = useMemo(() => {
     if (!reportRows.length) return null;
@@ -1255,13 +1307,15 @@ export default function Home() {
         ...aggregateMetricRows(displayedMetricRows, (row) => campaignNameForMetric(row, clientSummary.campaigns)).slice(0, 20),
       ];
       csv = reportTableToCsv(rows);
+    } else if (reportType === "teams" || reportType === "custom") {
+      csv = teamsReportToCsv(reportRows, displayedTotals.spend);
     } else if (reportType === "leads") {
       csv = leadsReportToCsv(displayedMetricRows, clientSummary.campaigns);
     } else {
       csv = reportTableToCsv(reportRows);
     }
 
-    downloadTextFile(fileName, `\uFEFF${csv}`);
+    downloadTextFile(fileName, `\uFEFF${reportCsvEnvelope(reportTypeLabels[reportType], clientSummary.client.name, periodLabel(), csv, reportType === "custom" ? customReportRequest : "")}`);
   }
 
   async function loadClientSummary(clientId: string, preset = datePreset): Promise<ClientSummary | null> {
@@ -2701,6 +2755,18 @@ export default function Home() {
                 </button>
               ))}
             </div>
+            {reportType === "custom" ? (
+              <div className="custom-report-request no-print">
+                <label>
+                  Solicitar relatorio personalizado
+                  <textarea
+                    value={customReportRequest}
+                    onChange={(event) => setCustomReportRequest(event.target.value)}
+                    placeholder="Ex: comparar campanhas por time comercial, separar leads por bairro, destacar criativos com maior CPL, incluir observacoes para reuniao..."
+                  />
+                </label>
+              </div>
+            ) : null}
             {apiMessage ? <p className="form-message no-print">{apiMessage}</p> : null}
             {!clientSummary || !displayedTotals ? (
               <p className="muted compact-muted">Escolha um cliente para montar o relatorio com dados sincronizados, recomendacoes e acoes registradas.</p>
@@ -2820,6 +2886,45 @@ export default function Home() {
                       </div>
                     </section>
                   </>
+                ) : reportType === "teams" || reportType === "custom" ? (
+                  <section className="report-section report-team-section">
+                    <div className="report-section-head">
+                      <p className="eyebrow">{reportTypeLabels[reportType]}</p>
+                      <h3>Distribuicao por time/campanha</h3>
+                    </div>
+                    {reportType === "custom" && customReportRequest.trim() ? (
+                      <div className="custom-report-note">
+                        <strong>Solicitacao</strong>
+                        <p>{customReportRequest.trim()}</p>
+                      </div>
+                    ) : null}
+                    <div className="team-report-table">
+                      <div className="team-report-row header">
+                        <span>Time</span>
+                        <span>Investimento</span>
+                        <span>Leads</span>
+                        <span>CPL</span>
+                        <span>% Investi</span>
+                      </div>
+                      {reportRows.map((row) => (
+                        <div className="team-report-row" key={`${row.label}-${row.secondary ?? ""}`}>
+                          <strong>{row.label}</strong>
+                          <span>{formatCurrency(row.spend)}</span>
+                          <span>{formatNumber(row.leads)}</span>
+                          <span>{formatCurrency(row.cpl || row.costPerResult)}</span>
+                          <span>{formatPercent(displayedTotals.spend ? (row.spend / displayedTotals.spend) * 100 : 0)}</span>
+                        </div>
+                      ))}
+                      <div className="team-report-row total">
+                        <strong>TOTAL</strong>
+                        <span>{formatCurrency(displayedTotals.spend)}</span>
+                        <span>{formatNumber(displayedTotals.leads)}</span>
+                        <span>{formatCurrency(displayedTotals.cpl)}</span>
+                        <span>100%</span>
+                      </div>
+                    </div>
+                    {!reportRows.length ? <p className="muted">Nenhuma campanha encontrada para montar o relatorio por time.</p> : null}
+                  </section>
                 ) : (
                   <section className="report-section">
                     <div className="report-section-head">

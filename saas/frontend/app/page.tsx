@@ -1460,7 +1460,11 @@ export default function Home() {
     setApiMessage("Atualizando WhatsApp...");
     try {
       const data = await apiFetch("/whatsapp/refresh", { method: "POST" });
-      setApiMessage(`${data.businessAccountsSynced ?? 0} contas WhatsApp e ${data.phoneNumbersSynced ?? 0} numeros atualizados.`);
+      setApiMessage(
+        data.cached
+          ? "Dados WhatsApp recentes reutilizados. Tente atualizar novamente daqui a alguns minutos se precisar forcar nova leitura da Meta."
+          : `${data.businessAccountsSynced ?? 0} contas WhatsApp e ${data.phoneNumbersSynced ?? 0} numeros atualizados.`
+      );
       await refreshWorkspace();
     } catch (error) {
       setApiMessage(error instanceof Error ? error.message : "Nao foi possivel atualizar WhatsApp.");

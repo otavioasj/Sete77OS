@@ -1930,6 +1930,10 @@ export default function Home() {
                   {overviewTrendRows.length ? (
                     overviewTrendRows.map((row) => (
                       <div className="trend-column" key={row.date}>
+                        <div className="trend-values">
+                          <strong>{formatCurrency(row.totals.spend)}</strong>
+                          <span>{formatNumber(row.totals.metaResults)} {row.totals.resultLabel}</span>
+                        </div>
                         <span className="trend-spend" style={{ height: `${Math.max(8, (row.totals.spend / overviewTrendMax) * 100)}%` }} />
                         <span className="trend-results" style={{ height: `${Math.max(8, (row.totals.metaResults / overviewTrendMax) * 100)}%` }} />
                         <small>{row.date.slice(5) || row.date}</small>
@@ -2733,11 +2737,17 @@ export default function Home() {
               <CreditCard size={21} />
             </div>
             <div className="mini-chart">
-              <span style={{ height: "42%" }} />
-              <span style={{ height: "68%" }} />
-              <span style={{ height: "36%" }} />
-              <span style={{ height: "82%" }} />
-              <span style={{ height: "55%" }} />
+              {[
+                { label: "Investido", value: formatCurrency(overviewTotals.spend), height: Math.max(12, Math.min(100, overviewTotals.spend ? 78 : 20)) },
+                { label: "Leads", value: formatNumber(overviewTotals.leads), height: Math.max(12, Math.min(100, overviewTotals.leads ? 62 : 20)) },
+                { label: "Resultado", value: formatNumber(overviewTotals.metaResults), height: Math.max(12, Math.min(100, overviewTotals.metaResults ? 72 : 20)) },
+                { label: "Custo medio", value: formatCurrency(overviewTotals.costPerResult), height: Math.max(12, Math.min(100, overviewTotals.costPerResult ? 48 : 20)) },
+              ].map((item) => (
+                <span style={{ height: `${item.height}%` }} key={item.label}>
+                  <strong>{item.value}</strong>
+                  <small>{item.label}</small>
+                </span>
+              ))}
             </div>
           </article>
 
@@ -2927,6 +2937,12 @@ export default function Home() {
                       {leadReportGranularityLabels[type]}
                     </button>
                   ))}
+                  <button
+                    className={datePreset === "custom" ? "active" : ""}
+                    onClick={() => setDatePreset("custom")}
+                  >
+                    Personalizado
+                  </button>
                 </div>
               </div>
             ) : null}
@@ -3105,9 +3121,17 @@ export default function Home() {
                     <div className="report-section-head">
                       <p className="eyebrow">{reportTypeLabels[reportType]}</p>
                       <h3>
-                        {reportType === "leads" ? `Leads gerados por campanha - ${leadReportGranularityLabels[leadReportGranularity].toLowerCase()}` : "O que puxou mais e menos resultado"}
+                        {reportType === "leads" ? `Leads, investimento e resultado por campanha - ${leadReportGranularityLabels[leadReportGranularity].toLowerCase()}` : "O que puxou mais e menos resultado"}
                       </h3>
                     </div>
+                    {reportType === "leads" ? (
+                      <div className="lead-report-summary">
+                        <div><span>Total de leads</span><strong>{formatNumber(displayedTotals.leads)}</strong></div>
+                        <div><span>Investimento total</span><strong>{formatCurrency(displayedTotals.spend)}</strong></div>
+                        <div><span>{displayedTotals.resultLabel}</span><strong>{formatNumber(displayedTotals.metaResults)}</strong></div>
+                        <div><span>Custo medio</span><strong>{formatCurrency(displayedTotals.costPerResult)}</strong></div>
+                      </div>
+                    ) : null}
                     {reportType === "creative" && reportCreativePreviewRows.length ? (
                       <div className="report-creative-grid">
                         {reportCreativePreviewRows.map((row, index) => (
@@ -3149,8 +3173,8 @@ export default function Home() {
                           <span>Campanha</span>
                           <span>Leads</span>
                           <span>Conversas</span>
-                          <span>Investimento</span>
-                          <span>Custo</span>
+                          <span>Investimento total</span>
+                          <span>Custo por resultado</span>
                         </div>
                         {leadReportRows.map((row, index) => (
                           <div className="report-data-row" key={`${row.period}-${row.campaign}-${index}`}>
@@ -3159,7 +3183,7 @@ export default function Home() {
                             <span>{formatNumber(row.leads)}</span>
                             <span>{formatNumber(row.conversations)}</span>
                             <span>{formatCurrency(row.spend)}</span>
-                            <span>{formatCurrency(row.costPerResult)}</span>
+                            <span>{formatCurrency(row.costPerResult)} <small>por resultado</small></span>
                           </div>
                         ))}
                       </div>

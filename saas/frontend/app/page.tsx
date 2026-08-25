@@ -184,6 +184,7 @@ type ActionItem = {
 };
 
 type ReportType = "executive" | "teams" | "custom" | "leads" | "campaigns" | "creative" | "platform";
+type LeadReportGranularity = "daily" | "weekly" | "monthly" | "bimonthly" | "quarterly" | "semiannual" | "annual";
 
 type ReportTableRow = {
   label: string;
@@ -198,6 +199,18 @@ type ReportTableRow = {
   cpl: number;
   ctr: number;
   cpm: number;
+};
+
+type LeadReportRow = {
+  period: string;
+  campaign: string;
+  leads: number;
+  conversations: number;
+  results: number;
+  spend: number;
+  costPerResult: number;
+  clicks: number;
+  impressions: number;
 };
 
 type MetricRow = ClientSummary["metrics"][number];
@@ -223,12 +236,22 @@ const datePresetLabels: Record<DatePreset, string> = {
 
 const reportTypeLabels: Record<ReportType, string> = {
   executive: "Executivo",
-  teams: "Times",
+  teams: "Campanhas",
   custom: "Personalizado",
   leads: "Leads",
   campaigns: "Campanhas",
   creative: "Criativos",
   platform: "Plataformas",
+};
+
+const leadReportGranularityLabels: Record<LeadReportGranularity, string> = {
+  daily: "Diario",
+  weekly: "Semanal",
+  monthly: "Mensal",
+  bimonthly: "Bimestral",
+  quarterly: "Trimestral",
+  semiannual: "Semestral",
+  annual: "Anual",
 };
 
 const metrics: Metric[] = [
@@ -439,6 +462,38 @@ function excelNumber(value: number) {
   return numberValue(value).toFixed(2).replace(".", ",");
 }
 
+function parseMetricDate(value?: string | null) {
+  if (!value) return null;
+  const [year, month, day] = value.split("-").map(Number);
+  if (!year || !month || !day) return null;
+  return new Date(year, month - 1, day);
+}
+
+function dateKey(date: Date) {
+  return date.toISOString().slice(0, 10);
+}
+
+function leadPeriodLabel(metricDate: string | null | undefined, granularity: LeadReportGranularity) {
+  const date = parseMetricDate(metricDate);
+  if (!date) return "Sem data";
+  const year = date.getFullYear();
+  const month = date.getMonth();
+  if (granularity === "daily") return dateKey(date);
+  if (granularity === "weekly") {
+    const start = new Date(date);
+    const day = start.getDay() || 7;
+    start.setDate(start.getDate() - day + 1);
+    const end = new Date(start);
+    end.setDate(start.getDate() + 6);
+    return `Semana ${start.toLocaleDateString("pt-BR")} a ${end.toLocaleDateString("pt-BR")}`;
+  }
+  if (granularity === "monthly") return date.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+  if (granularity === "bimonthly") return `${Math.floor(month / 2) + 1}o bimestre/${year}`;
+  if (granularity === "quarterly") return `${Math.floor(month / 3) + 1}o trimestre/${year}`;
+  if (granularity === "semiannual") return `${month < 6 ? "1o" : "2o"} semestre/${year}`;
+  return String(year);
+}
+
 function csvEscape(value: string | number | null | undefined) {
   const text = String(value ?? "");
   return `"${text.replace(/"/g, '""')}"`;
@@ -527,7 +582,7 @@ function reportTableToCsv(rows: ReportTableRow[]) {
 }
 
 function teamsReportToCsv(rows: ReportTableRow[], totalSpend: number) {
-  const header = ["Time", "Investimento (R$)", "Leads", "CPL (R$)", "% Investimento"];
+  const header = ["Campanha", "Investimento (R$)", "Leads", "CPL (R$)", "% Investimento"];
   const body = rows.map((row) => [
     row.label,
     excelNumber(row.spend),
@@ -559,24 +614,51 @@ function reportCsvEnvelope(title: string, clientName: string, period: string, bo
   return `${lines.map((line) => line.map(csvEscape).join(";")).join("\n")}\n\n${body}`;
 }
 
-function leadsReportToCsv(rows: ClientSummary["metrics"], campaigns: ClientSummary["campaigns"]) {
-  const header = ["Data", "Campanha", "Leads", "Conversas", "Resultados", "Investimento (R$)", "Custo por resultado (R$)", "Cliques", "Impressoes"];
+function buildLeadReportRows(rows: ClientSummary["metrics"], campaigns: ClientSummary["campaigns"], granularity: LeadReportGranularity): LeadReportRow[] {
+  const grouped = new Map<string, { period: string; campaign: string; rows: ClientSummary["metrics"] }>();
+  rows.forEach((row) => {
+    const period = leadPeriodLabel(row.metric_date, granularity);
+    const campaign = campaignNameForMetric(row, campaigns);
+    const key = `${period}::${campaign}`;
+    const current = grouped.get(key) ?? { period, campaign, rows: [] };
+    current.rows.push(row);
+    grouped.set(key, current);
+  });
+  return Array.from(grouped.values())
+    .map((group) => {
+      const totals = calculateTotals(group.rows);
+      return {
+        period: group.period,
+        campaign: group.campaign,
+        leads: totals.leads,
+        conversations: totals.conversations,
+        results: totals.metaResults,
+        spend: totals.spend,
+        costPerResult: totals.costPerResult,
+        clicks: totals.clicks,
+        impressions: totals.impressions,
+      };
+    })
+    .sort((a, b) => b.period.localeCompare(a.period) || b.leads - a.leads || b.spend - a.spend);
+}
+
+function leadsReportToCsv(rows: LeadReportRow[]) {
+  const header = ["Periodo", "Campanha", "Leads", "Conversas", "Resultados", "Investimento (R$)", "Custo por resultado (R$)", "Cliques", "Impressoes"];
   const body = rows
     .map((row) => {
-      const totals = calculateTotals([row]);
       return [
-        row.metric_date ?? "",
-        campaignNameForMetric(row, campaigns),
+        row.period,
+        row.campaign,
         row.leads,
-        totals.conversations,
-        totals.metaResults,
+        row.conversations,
+        row.results,
         excelNumber(row.spend),
-        excelNumber(totals.costPerResult),
+        excelNumber(row.costPerResult),
         row.clicks,
         row.impressions,
       ];
     })
-    .sort((a, b) => String(a[0]).localeCompare(String(b[0])));
+    .sort((a, b) => String(b[0]).localeCompare(String(a[0])));
   return [header, ...body].map((line) => line.map(csvEscape).join(";")).join("\n");
 }
 
@@ -702,6 +784,7 @@ export default function Home() {
   const [customSince, setCustomSince] = useState("");
   const [customUntil, setCustomUntil] = useState("");
   const [reportType, setReportType] = useState<ReportType>("executive");
+  const [leadReportGranularity, setLeadReportGranularity] = useState<LeadReportGranularity>("daily");
   const [customReportRequest, setCustomReportRequest] = useState("");
   const [aiRecommendation, setAiRecommendation] = useState<AiRecommendation | null>(null);
   const [aiRecommendationLoading, setAiRecommendationLoading] = useState(false);
@@ -871,6 +954,11 @@ export default function Home() {
     })[0];
     return { bestByResult, worstByResult };
   }, [reportRows]);
+
+  const leadReportRows = useMemo(
+    () => (clientSummary ? buildLeadReportRows(displayedMetricRows, clientSummary.campaigns, leadReportGranularity) : []),
+    [clientSummary, displayedMetricRows, leadReportGranularity]
+  );
 
   const overviewTotals = displayedTotals ?? clientSummary?.totals ?? calculateTotals([]);
 
@@ -1350,7 +1438,7 @@ export default function Home() {
     } else if (reportType === "teams" || reportType === "custom") {
       csv = teamsReportToCsv(reportRows, displayedTotals.spend);
     } else if (reportType === "leads") {
-      csv = leadsReportToCsv(displayedMetricRows, clientSummary.campaigns);
+      csv = leadsReportToCsv(leadReportRows);
     } else {
       csv = reportTableToCsv(reportRows);
     }
@@ -2826,6 +2914,22 @@ export default function Home() {
                 </button>
               ))}
             </div>
+            {reportType === "leads" ? (
+              <div className="lead-report-granularity no-print">
+                <span>Agrupar leads por</span>
+                <div className="report-format-tabs compact-tabs">
+                  {(Object.keys(leadReportGranularityLabels) as LeadReportGranularity[]).map((type) => (
+                    <button
+                      className={leadReportGranularity === type ? "active" : ""}
+                      key={type}
+                      onClick={() => setLeadReportGranularity(type)}
+                    >
+                      {leadReportGranularityLabels[type]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
             {reportType === "custom" ? (
               <div className="custom-report-request no-print">
                 <label>
@@ -2961,7 +3065,7 @@ export default function Home() {
                   <section className="report-section report-team-section">
                     <div className="report-section-head">
                       <p className="eyebrow">{reportTypeLabels[reportType]}</p>
-                      <h3>Distribuicao por time/campanha</h3>
+                      <h3>Distribuicao por campanha</h3>
                     </div>
                     {reportType === "custom" && customReportRequest.trim() ? (
                       <div className="custom-report-note">
@@ -2971,7 +3075,7 @@ export default function Home() {
                     ) : null}
                     <div className="team-report-table">
                       <div className="team-report-row header">
-                        <span>Time</span>
+                        <span>Campanha</span>
                         <span>Investimento</span>
                         <span>Leads</span>
                         <span>CPL</span>
@@ -2994,14 +3098,14 @@ export default function Home() {
                         <span>100%</span>
                       </div>
                     </div>
-                    {!reportRows.length ? <p className="muted">Nenhuma campanha encontrada para montar o relatorio por time.</p> : null}
+                    {!reportRows.length ? <p className="muted">Nenhuma campanha encontrada para montar o relatorio por campanha.</p> : null}
                   </section>
                 ) : (
                   <section className="report-section">
                     <div className="report-section-head">
                       <p className="eyebrow">{reportTypeLabels[reportType]}</p>
                       <h3>
-                        {reportType === "leads" ? "Leads gerados por dia e campanha" : "O que puxou mais e menos resultado"}
+                        {reportType === "leads" ? `Leads gerados por campanha - ${leadReportGranularityLabels[leadReportGranularity].toLowerCase()}` : "O que puxou mais e menos resultado"}
                       </h3>
                     </div>
                     {reportType === "creative" && reportCreativePreviewRows.length ? (
@@ -3041,26 +3145,23 @@ export default function Home() {
                     {reportType === "leads" ? (
                       <div className="report-data-table leads">
                         <div className="report-data-row header">
-                          <span>Data</span>
+                          <span>Periodo</span>
                           <span>Campanha</span>
                           <span>Leads</span>
                           <span>Conversas</span>
                           <span>Investimento</span>
                           <span>Custo</span>
                         </div>
-                        {displayedMetricRows.map((row, index) => {
-                          const totals = calculateTotals([row]);
-                          return (
-                            <div className="report-data-row" key={`${row.campaign_external_id}-${row.metric_date}-${index}`}>
-                              <span>{row.metric_date ?? "-"}</span>
-                              <strong>{campaignNameForMetric(row, clientSummary.campaigns)}</strong>
-                              <span>{formatNumber(row.leads)}</span>
-                              <span>{formatNumber(totals.conversations)}</span>
-                              <span>{formatCurrency(row.spend)}</span>
-                              <span>{formatCurrency(totals.costPerResult)}</span>
-                            </div>
-                          );
-                        })}
+                        {leadReportRows.map((row, index) => (
+                          <div className="report-data-row" key={`${row.period}-${row.campaign}-${index}`}>
+                            <span>{row.period}</span>
+                            <strong>{row.campaign}</strong>
+                            <span>{formatNumber(row.leads)}</span>
+                            <span>{formatNumber(row.conversations)}</span>
+                            <span>{formatCurrency(row.spend)}</span>
+                            <span>{formatCurrency(row.costPerResult)}</span>
+                          </div>
+                        ))}
                       </div>
                     ) : (
                       <div className="report-data-table">
@@ -3088,7 +3189,7 @@ export default function Home() {
                       </div>
                     )}
                     {reportType !== "leads" && !reportRows.length ? <p className="muted">Nenhum dado encontrado para este formato no periodo.</p> : null}
-                    {reportType === "leads" && !displayedMetricRows.length ? <p className="muted">Nenhum lead encontrado para este periodo.</p> : null}
+                    {reportType === "leads" && !leadReportRows.length ? <p className="muted">Nenhum lead encontrado para este periodo.</p> : null}
                   </section>
                 )}
               </div>

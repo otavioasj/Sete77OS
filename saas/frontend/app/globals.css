@@ -2405,6 +2405,30 @@ svg {
   color: var(--text-on-ink);
 }
 
+.lead-report-granularity {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.lead-report-granularity > span {
+  color: var(--text-dim);
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.report-format-tabs.compact-tabs {
+  margin-top: 0;
+}
+
+.report-format-tabs.compact-tabs button {
+  min-height: 32px;
+  padding: 0 11px;
+  font-size: 0.82rem;
+}
+
 .custom-report-request {
   margin-top: 14px;
 }

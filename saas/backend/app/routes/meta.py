@@ -696,7 +696,7 @@ def meta_client_summary(
 
     campaigns = (
         admin.table("campaigns")
-        .select("id,name,status,effective_status,objective,meta_campaign_id,metadata,updated_at")
+        .select("id,name,status,effective_status,objective,meta_campaign_id,external_id,platform,metadata,updated_at")
         .eq("client_id", client_id)
         .order("updated_at", desc=True)
         .limit(100)

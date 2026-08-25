@@ -18,6 +18,7 @@ class ClientCreate(BaseModel):
     name: str = Field(min_length=2, max_length=120)
     source: str = "manual"
     meta_ad_account_id: str | None = None
+    google_ads_customer_id: str | None = None
     meta_page_id: str | None = None
     meta_instagram_account_id: str | None = None
 
@@ -73,6 +74,10 @@ def _canonical_meta_account_id(value: str | None) -> str | None:
     return f"act_{normalized}" if normalized.isdigit() else value
 
 
+def _normalize_google_customer_id(value: str | None) -> str:
+    return "".join(char for char in (value or "") if char.isdigit())
+
+
 @router.get("")
 def list_clients(user: Annotated[CurrentUser, Depends(get_current_user)]) -> dict[str, object]:
     client = get_supabase_admin()
@@ -95,6 +100,7 @@ def create_client(
     organization_id = _get_or_create_organization_id(client, user)
 
     meta_ad_account_id = _canonical_meta_account_id(payload.meta_ad_account_id)
+    google_ads_customer_id = _normalize_google_customer_id(payload.google_ads_customer_id)
 
     if meta_ad_account_id:
         normalized_payload_account = _normalize_meta_account_id(meta_ad_account_id)
@@ -107,6 +113,16 @@ def create_client(
         for existing_client in existing.data or []:
             if _normalize_meta_account_id(existing_client.get("meta_ad_account_id")) == normalized_payload_account:
                 return {"ok": True, "client": existing_client, "alreadyExists": True}
+    if google_ads_customer_id:
+        existing = (
+            client.table("clients")
+            .select("*")
+            .eq("owner_id", user.id)
+            .execute()
+        )
+        for existing_client in existing.data or []:
+            if _normalize_google_customer_id(existing_client.get("google_ads_customer_id")) == google_ads_customer_id:
+                return {"ok": True, "client": existing_client, "alreadyExists": True}
 
     row = {
         "organization_id": organization_id,
@@ -114,6 +130,7 @@ def create_client(
         "name": payload.name,
         "source": payload.source,
         "meta_ad_account_id": meta_ad_account_id,
+        "google_ads_customer_id": google_ads_customer_id or None,
         "meta_page_id": payload.meta_page_id,
         "meta_instagram_account_id": payload.meta_instagram_account_id,
     }

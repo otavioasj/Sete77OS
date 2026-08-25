@@ -34,6 +34,7 @@ class Settings(BaseSettings):
     google_ads_client_secret: str = ""
     google_ads_developer_token: str = ""
     google_ads_login_customer_id: str = ""
+    google_ads_api_version: str = "v25"
     google_ads_oauth_scopes: str = "https://www.googleapis.com/auth/adwords"
     cors_origins: str = "http://localhost:3000,http://127.0.0.1:3000,https://ads.creativeagenciamkt.com.br"
 

@@ -57,6 +57,7 @@ type ClientRecord = {
   name: string;
   source: string;
   meta_ad_account_id?: string | null;
+  google_ads_customer_id?: string | null;
   monthly_budget?: number | null;
   target_cpl?: number | null;
   account_manager?: string | null;
@@ -130,6 +131,8 @@ type ClientSummary = {
     effective_status?: string;
     objective?: string;
     meta_campaign_id?: string;
+    external_id?: string;
+    platform?: string;
     metadata?: { creative_previews?: CreativePreview[] } | null;
   }[];
   metrics: CampaignMetric[];
@@ -332,6 +335,14 @@ function metaAccountKeys(account: Pick<MetaAdAccount, "id" | "account_id">) {
     .map((value) => String(value));
 }
 
+function normalizeGoogleCustomerId(value?: string | null) {
+  return String(value ?? "").replace(/\D/g, "");
+}
+
+function campaignExternalId(campaign: Pick<ClientSummary["campaigns"][number], "external_id" | "meta_campaign_id">) {
+  return campaign.external_id || campaign.meta_campaign_id || "";
+}
+
 function actionTotal(actions: { action_type?: string; value?: string | number }[] | undefined, actionTypes: string[]) {
   return (actions ?? []).reduce((total, action) => {
     return actionTypes.includes(action.action_type ?? "") ? total + numberValue(action.value) : total;
@@ -531,7 +542,7 @@ function campaignNameForMetric(row: MetricRow, campaigns: ClientSummary["campaig
   return (
     row.campaign_name ||
     row.campaign ||
-    campaigns.find((campaign) => campaign.meta_campaign_id === row.campaign_external_id)?.name ||
+    campaigns.find((campaign) => campaignExternalId(campaign) === row.campaign_external_id)?.name ||
     row.campaign_external_id ||
     "Campanha sem nome"
   );
@@ -857,6 +868,15 @@ export default function Home() {
     return mapped;
   }, [clients]);
 
+  const connectedGoogleAccountByKey = useMemo(() => {
+    const mapped = new Map<string, ClientRecord>();
+    clients.forEach((client) => {
+      const customerId = normalizeGoogleCustomerId(client.google_ads_customer_id);
+      if (customerId) mapped.set(customerId, client);
+    });
+    return mapped;
+  }, [clients]);
+
   const filteredAdAccounts = useMemo(() => {
     const search = accountSearch.trim().toLowerCase();
     const accounts = assets?.adAccounts ?? [];
@@ -887,7 +907,7 @@ export default function Home() {
     if (!selectedIds.size || selectedIds.size === clientSummary.campaigns.length) {
       const hasCampaignFilter = campaignStatusFilter !== "all" || Boolean(campaignSearch.trim());
       if (!hasCampaignFilter) return clientSummary.totals;
-      const visibleCampaignIds = new Set(filteredCampaigns.map((campaign) => campaign.meta_campaign_id).filter(Boolean));
+      const visibleCampaignIds = new Set(filteredCampaigns.map(campaignExternalId).filter(Boolean));
       return calculateTotals(clientSummary.metrics.filter((row) => visibleCampaignIds.has(row.campaign_external_id ?? "")));
     }
     return calculateTotals(clientSummary.metrics.filter((row) => selectedIds.has(row.campaign_external_id ?? "")));
@@ -899,7 +919,7 @@ export default function Home() {
     if (!selectedIds.size || selectedIds.size === clientSummary.campaigns.length) {
       const hasCampaignFilter = campaignStatusFilter !== "all" || Boolean(campaignSearch.trim());
       if (!hasCampaignFilter) return clientSummary.metrics;
-      const visibleCampaignIds = new Set(filteredCampaigns.map((campaign) => campaign.meta_campaign_id).filter(Boolean));
+      const visibleCampaignIds = new Set(filteredCampaigns.map(campaignExternalId).filter(Boolean));
       return clientSummary.metrics.filter((row) => visibleCampaignIds.has(row.campaign_external_id ?? ""));
     }
     return clientSummary.metrics.filter((row) => selectedIds.has(row.campaign_external_id ?? ""));
@@ -911,7 +931,7 @@ export default function Home() {
     if (!selectedIds.size || selectedIds.size === clientSummary.campaigns.length) {
       const hasCampaignFilter = campaignStatusFilter !== "all" || Boolean(campaignSearch.trim());
       if (!hasCampaignFilter) return clientSummary.previousMetrics;
-      const visibleCampaignIds = new Set(filteredCampaigns.map((campaign) => campaign.meta_campaign_id).filter(Boolean));
+      const visibleCampaignIds = new Set(filteredCampaigns.map(campaignExternalId).filter(Boolean));
       return clientSummary.previousMetrics.filter((row) => visibleCampaignIds.has(row.campaign_external_id ?? ""));
     }
     return clientSummary.previousMetrics.filter((row) => selectedIds.has(row.campaign_external_id ?? ""));
@@ -920,7 +940,7 @@ export default function Home() {
   const campaignRows = useMemo<CampaignPerformance[]>(() => {
     if (!clientSummary) return [];
     return filteredCampaigns.map((campaign) => {
-      const rows = clientSummary.metrics.filter((row) => row.campaign_external_id === campaign.meta_campaign_id);
+      const rows = clientSummary.metrics.filter((row) => row.campaign_external_id === campaignExternalId(campaign));
       const totals = calculateTotals(rows);
       const recommendation = campaignRecommendation(totals, campaign.effective_status ?? campaign.status);
       return { ...campaign, totals, recommendation: recommendation.text, tone: recommendation.tone };
@@ -1258,7 +1278,7 @@ export default function Home() {
       const matchesSearch = !search || `${campaign.name} ${campaign.objective ?? ""} ${status}`.toLowerCase().includes(search);
       return matchesStatus && matchesSearch;
     });
-    setSelectedCampaignIds(nextCampaigns.map((campaign) => campaign.meta_campaign_id).filter((id): id is string => Boolean(id)));
+    setSelectedCampaignIds(nextCampaigns.map(campaignExternalId).filter((id): id is string => Boolean(id)));
   }
 
   function periodSearchParams(preset = datePreset) {
@@ -1400,6 +1420,20 @@ export default function Home() {
     }
   }
 
+  async function refreshGoogleAdsAccounts() {
+    setApiLoading(true);
+    setApiMessage("Atualizando contas Google Ads...");
+    try {
+      const data = await apiFetch("/google-ads/refresh-accounts", { method: "POST" });
+      setApiMessage(`${data.accountsSynced ?? 0} contas Google Ads atualizadas.`);
+      await refreshWorkspace();
+    } catch (error) {
+      setApiMessage(error instanceof Error ? error.message : "Nao foi possivel atualizar contas Google Ads.");
+    } finally {
+      setApiLoading(false);
+    }
+  }
+
   async function createClientFromAdAccount(account: MetaAdAccount) {
     const existingClient = metaAccountKeys(account)
       .map((key) => connectedAccountByKey.get(key))
@@ -1426,6 +1460,36 @@ export default function Home() {
       setActiveView("Clientes");
     } catch (error) {
       setApiMessage(error instanceof Error ? error.message : "Nao foi possivel criar cliente.");
+    } finally {
+      setApiLoading(false);
+    }
+  }
+
+  async function createClientFromGoogleAdsAccount(account: GoogleAdsStatus["accounts"][number]) {
+    const customerId = normalizeGoogleCustomerId(account.customer_id);
+    const existingClient = connectedGoogleAccountByKey.get(customerId);
+    if (existingClient) {
+      setSelectedClientId(existingClient.id);
+      await loadClientSummary(existingClient.id);
+      setActiveView("Clientes");
+      return;
+    }
+    setApiLoading(true);
+    setApiMessage("");
+    try {
+      const result = await apiFetch("/clients", {
+        method: "POST",
+        body: JSON.stringify({
+          name: account.descriptive_name || `Google Ads ${customerId}`,
+          source: "google_ads",
+          google_ads_customer_id: customerId,
+        })
+      });
+      setApiMessage(result.alreadyExists ? "Cliente ja estava cadastrado." : "Cliente Google Ads criado.");
+      await refreshWorkspace();
+      setActiveView("Clientes");
+    } catch (error) {
+      setApiMessage(error instanceof Error ? error.message : "Nao foi possivel criar cliente Google Ads.");
     } finally {
       setApiLoading(false);
     }
@@ -1505,7 +1569,7 @@ export default function Home() {
     try {
       const data = await apiFetch(`/meta/summary/${clientId}?${periodSearchParams(preset)}`);
       setClientSummary(data);
-      setSelectedCampaignIds((data.campaigns ?? []).map((campaign: ClientSummary["campaigns"][number]) => campaign.meta_campaign_id).filter(Boolean));
+      setSelectedCampaignIds((data.campaigns ?? []).map(campaignExternalId).filter(Boolean));
       setCampaignStatusFilter("all");
       setCampaignSearch("");
       setHistoryOpen(false);
@@ -1545,7 +1609,7 @@ export default function Home() {
 
   async function saveActionDecision(priority: AiPriority, status: ActionStatus) {
     if (!selectedClientId) return;
-    const key = actionItemKey(periodKey(), priority.campaign.meta_campaign_id, priority.title);
+    const key = actionItemKey(periodKey(), campaignExternalId(priority.campaign), priority.title);
     setActionSavingKey(key);
     setActionMessage("");
     try {
@@ -1553,7 +1617,7 @@ export default function Home() {
         method: "POST",
         body: JSON.stringify({
           period: periodKey(),
-          campaign_external_id: priority.campaign.meta_campaign_id ?? "",
+          campaign_external_id: campaignExternalId(priority.campaign),
           campaign_name: priority.campaign.name,
           title: priority.title,
           action: priority.action,
@@ -1690,12 +1754,14 @@ export default function Home() {
   }
 
   async function syncClient(clientId: string, campaignIds: string[] = []): Promise<ClientSummary | null> {
+    const client = clients.find((item) => item.id === clientId) ?? clientSummary?.client;
+    const isGoogleAds = Boolean(client?.google_ads_customer_id) && !client?.meta_ad_account_id;
     setSelectedClientId(clientId);
     setApiLoading(true);
     setSyncProgress({ clientId, percent: 8, label: "Preparando sincronizacao", status: "running" });
-    setApiMessage("Sincronizando Meta Ads...");
+    setApiMessage(isGoogleAds ? "Sincronizando Google Ads..." : "Sincronizando Meta Ads...");
     const steps = [
-      { percent: 18, label: "Validando conexao Meta" },
+      { percent: 18, label: isGoogleAds ? "Validando conexao Google Ads" : "Validando conexao Meta" },
       { percent: 34, label: "Buscando campanhas" },
       { percent: 52, label: "Lendo metricas dos ultimos 30 dias" },
       { percent: 72, label: "Salvando dados no Supabase" },
@@ -1717,7 +1783,7 @@ export default function Home() {
       });
     }, 900);
     try {
-      const result = await apiFetch(`/meta/sync/${clientId}`, {
+      const result = await apiFetch(isGoogleAds ? `/google-ads/sync/${clientId}` : `/meta/sync/${clientId}`, {
         method: "POST",
         body: JSON.stringify({ campaign_ids: campaignIds, ...syncPeriodPayload() }),
       });
@@ -1758,7 +1824,7 @@ export default function Home() {
       }
       const prioritiesForAnalysis = buildAiPriorities(
         summaryForAnalysis.campaigns.map((campaign) => {
-          const rows = summaryForAnalysis.metrics.filter((row) => row.campaign_external_id === campaign.meta_campaign_id);
+          const rows = summaryForAnalysis.metrics.filter((row) => row.campaign_external_id === campaignExternalId(campaign));
           const totals = calculateTotals(rows);
           const recommendation = campaignRecommendation(totals, campaign.effective_status ?? campaign.status);
           return { ...campaign, totals, recommendation: recommendation.text, tone: recommendation.tone };
@@ -2177,21 +2243,21 @@ export default function Home() {
               <div className="data-row header">
                 <span>Cliente</span>
                 <span>Origem</span>
-                <span>Conta Meta</span>
+                <span>Conta vinculada</span>
                 <span>Criado em</span>
                 <span>Acoes</span>
               </div>
               {clients.map((client) => (
                 <div className="data-row" key={client.id}>
                   <strong>{client.name}</strong>
-                  <span>{client.source === "meta" ? "Meta Ads" : "Manual"}</span>
-                  <span>{client.meta_ad_account_id ?? "-"}</span>
+                  <span>{client.google_ads_customer_id ? "Google Ads" : client.source === "meta" ? "Meta Ads" : "Manual"}</span>
+                  <span>{client.meta_ad_account_id ?? client.google_ads_customer_id ?? "-"}</span>
                   <span>{new Date(client.created_at).toLocaleDateString("pt-BR")}</span>
                   <span className="row-actions">
                     <button className="ghost-button" onClick={() => loadClientSummary(client.id)} disabled={apiLoading}>
                       Ver
                     </button>
-                    <button className="ghost-button" onClick={() => syncClient(client.id)} disabled={apiLoading || !client.meta_ad_account_id}>
+                    <button className="ghost-button" onClick={() => syncClient(client.id)} disabled={apiLoading || (!client.meta_ad_account_id && !client.google_ads_customer_id)}>
                       {syncProgress?.clientId === client.id ? `${syncProgress.percent}%` : "Sincronizar"}
                     </button>
                   </span>
@@ -2318,7 +2384,7 @@ export default function Home() {
                   <span>{selectedCampaignCount} selecionadas</span>
                   <button
                     className="link-button"
-                    onClick={() => setSelectedCampaignIds(filteredCampaigns.map((campaign) => campaign.meta_campaign_id).filter((id): id is string => Boolean(id)))}
+                    onClick={() => setSelectedCampaignIds(filteredCampaigns.map(campaignExternalId).filter((id): id is string => Boolean(id)))}
                   >
                     Marcar visiveis
                   </button>
@@ -2329,20 +2395,20 @@ export default function Home() {
               </div>
               <div className="compact-list">
                 {filteredCampaigns.map((campaign) => {
-                  const metaCampaignId = campaign.meta_campaign_id ?? "";
-                  const checked = Boolean(metaCampaignId && selectedCampaignIds.includes(metaCampaignId));
+                  const externalCampaignId = campaignExternalId(campaign);
+                  const checked = Boolean(externalCampaignId && selectedCampaignIds.includes(externalCampaignId));
                   return (
                   <div className="selectable-row" key={campaign.id}>
                     <label>
                       <input
                         type="checkbox"
                         checked={checked}
-                        disabled={!metaCampaignId}
+                        disabled={!externalCampaignId}
                         onChange={(event) => {
                           setSelectedCampaignIds((current) =>
                             event.target.checked
-                              ? Array.from(new Set([...current, metaCampaignId]))
-                              : current.filter((id) => id !== metaCampaignId)
+                              ? Array.from(new Set([...current, externalCampaignId]))
+                              : current.filter((id) => id !== externalCampaignId)
                           );
                         }}
                       />
@@ -2445,6 +2511,29 @@ export default function Home() {
             <button className="ghost-button" onClick={connectGoogleAds} disabled={apiLoading || !googleAdsStatus?.configured}>
               <PlugZap size={17} /> {googleAdsStatus?.connected ? "Reconectar Google Ads" : "Conectar Google Ads"}
             </button>
+            <button className="ghost-button" onClick={refreshGoogleAdsAccounts} disabled={apiLoading || !googleAdsStatus?.connected}>
+              <Activity size={17} /> Atualizar contas
+            </button>
+            {googleAdsStatus?.accounts.length ? (
+              <div className="asset-list compact-google-list">
+                {googleAdsStatus.accounts.map((account) => {
+                  const customerId = normalizeGoogleCustomerId(account.customer_id);
+                  const linkedClient = connectedGoogleAccountByKey.get(customerId);
+                  return (
+                    <div className="asset-row" key={customerId}>
+                      <div>
+                        <strong>{account.descriptive_name || `Google Ads ${customerId}`}</strong>
+                        <p>{customerId} {account.currency_code ? `- ${account.currency_code}` : ""}</p>
+                        {account.time_zone ? <small>{account.time_zone}</small> : null}
+                      </div>
+                      <button className="ghost-button" onClick={() => createClientFromGoogleAdsAccount(account)} disabled={apiLoading}>
+                        <Users size={17} /> {linkedClient ? "Abrir cliente" : "Criar cliente"}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : null}
           </article>
 
           <article className="panel integration-card">
@@ -2489,7 +2578,7 @@ export default function Home() {
               {clients.slice(0, 8).map((client) => (
                 <div key={client.id}>
                   <strong>{client.name}</strong>
-                  <span>{client.source === "meta" ? "Meta Ads" : "Manual"}</span>
+                  <span>{client.google_ads_customer_id ? "Google Ads" : client.source === "meta" ? "Meta Ads" : "Manual"}</span>
                 </div>
               ))}
               {!clients.length ? <p className="muted">Crie clientes a partir das contas Meta conectadas.</p> : null}
@@ -2679,7 +2768,7 @@ export default function Home() {
                   <div className="ai-priority-list">
                     {actionMessage ? <p className="form-message">{actionMessage}</p> : null}
                     {aiPriorities.map((priority) => {
-                      const itemKey = actionItemKey(periodKey(), priority.campaign.meta_campaign_id, priority.title);
+                      const itemKey = actionItemKey(periodKey(), campaignExternalId(priority.campaign), priority.title);
                       const savedAction = actionItemByKey.get(itemKey);
                       const isSaving = actionSavingKey === itemKey;
                       return (

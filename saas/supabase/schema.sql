@@ -4,6 +4,7 @@ create table if not exists public.clients (
   name text not null,
   source text not null default 'manual',
   meta_ad_account_id text,
+  google_ads_customer_id text,
   meta_page_id text,
   meta_instagram_account_id text,
   created_at timestamptz not null default now(),
@@ -13,6 +14,7 @@ create table if not exists public.clients (
 alter table public.clients add column if not exists owner_id uuid;
 alter table public.clients add column if not exists source text not null default 'manual';
 alter table public.clients add column if not exists meta_ad_account_id text;
+alter table public.clients add column if not exists google_ads_customer_id text;
 alter table public.clients add column if not exists meta_page_id text;
 alter table public.clients add column if not exists meta_instagram_account_id text;
 alter table public.clients add column if not exists monthly_budget numeric not null default 0;

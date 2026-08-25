@@ -217,6 +217,22 @@ def _canonical_ad_account_id(value: str | None) -> str | None:
     return f"act_{normalized}" if normalized.isdigit() else clean
 
 
+def _account_merge_key(account: dict[str, Any]) -> str:
+    account_id = str(account.get("account_id") or account.get("id") or "")
+    return account_id.removeprefix("act_")
+
+
+def _merge_ad_accounts(accounts: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    merged: dict[str, dict[str, Any]] = {}
+    for account in accounts:
+        key = _account_merge_key(account)
+        if not key:
+            continue
+        current = merged.get(key, {})
+        merged[key] = {**current, **account}
+    return sorted(merged.values(), key=lambda item: str(item.get("name") or "").lower())
+
+
 METRICS_SELECT = (
     "campaign_external_id,campaign_name,campaign,platform,ad_group,ad_name,spend,impressions,reach,"
     "clicks,inline_link_clicks,leads,metric_date,raw_json"
@@ -370,23 +386,42 @@ async def list_meta_assets(user: Annotated[CurrentUser, Depends(get_current_user
         return {"ok": True, "connected": False, "businesses": [], "adAccounts": [], "pages": []}
 
     token = connection.data[0]["access_token"]
-    businesses = await _graph_get("me/businesses", token, fields="id,name,verification_status")
-    ad_accounts = await _graph_get(
+    businesses = await _graph_get_all("me/businesses", token, fields="id,name,verification_status")
+    direct_ad_accounts = await _graph_get_all(
         "me/adaccounts",
         token,
         fields="id,account_id,name,account_status,currency,timezone_name,business{id,name}",
     )
+    business_ad_accounts: list[dict[str, Any]] = []
+    for business in businesses:
+        business_id = business.get("id")
+        if not business_id:
+            continue
+        for edge in ("owned_ad_accounts", "client_ad_accounts"):
+            try:
+                rows = await _graph_get_all(
+                    f"{business_id}/{edge}",
+                    token,
+                    fields="id,account_id,name,account_status,currency,timezone_name,business{id,name}",
+                )
+            except HTTPException:
+                continue
+            for row in rows:
+                row.setdefault("business", {"id": business_id, "name": business.get("name")})
+                row["business_source"] = edge
+                business_ad_accounts.append(row)
     pages = await _graph_get(
         "me/accounts",
         token,
         fields="id,name,category,access_token,instagram_business_account{id,username,name}",
     )
+    ad_accounts = _merge_ad_accounts([*direct_ad_accounts, *business_ad_accounts])
 
     return {
         "ok": True,
         "connected": True,
-        "businesses": businesses.get("data", []),
-        "adAccounts": ad_accounts.get("data", []),
+        "businesses": businesses,
+        "adAccounts": ad_accounts,
         "pages": pages.get("data", []),
     }
 

@@ -371,8 +371,80 @@ async def meta_oauth_callback(
     return RedirectResponse(f"{frontend_url}/?meta=connected")
 
 
+def _cached_meta_assets(admin, owner_id: str) -> dict[str, Any]:
+    businesses_result = (
+        admin.table("meta_businesses")
+        .select("meta_business_id,name,verification_status")
+        .eq("owner_id", owner_id)
+        .order("name")
+        .execute()
+    )
+    business_by_id = {
+        row.get("meta_business_id"): {
+            "id": row.get("meta_business_id"),
+            "name": row.get("name"),
+            "verification_status": row.get("verification_status"),
+        }
+        for row in businesses_result.data or []
+    }
+    accounts_result = (
+        admin.table("meta_ad_accounts")
+        .select("meta_ad_account_id,account_id,name,account_status,currency,timezone_name,business_id,raw")
+        .eq("owner_id", owner_id)
+        .order("name")
+        .execute()
+    )
+    pages_result = (
+        admin.table("meta_pages")
+        .select("meta_page_id,name,category,meta_instagram_account_id,instagram_username")
+        .eq("owner_id", owner_id)
+        .order("name")
+        .execute()
+    )
+    ad_accounts = []
+    for row in accounts_result.data or []:
+        raw = row.get("raw") if isinstance(row.get("raw"), dict) else {}
+        business = business_by_id.get(row.get("business_id")) or raw.get("business")
+        ad_accounts.append(
+            {
+                "id": row.get("meta_ad_account_id"),
+                "account_id": row.get("account_id"),
+                "name": row.get("name"),
+                "account_status": row.get("account_status"),
+                "currency": row.get("currency"),
+                "timezone_name": row.get("timezone_name"),
+                "business": business,
+            }
+        )
+    pages = [
+        {
+            "id": row.get("meta_page_id"),
+            "name": row.get("name"),
+            "category": row.get("category"),
+            "instagram_business_account": (
+                {
+                    "id": row.get("meta_instagram_account_id"),
+                    "username": row.get("instagram_username"),
+                    "name": row.get("instagram_username"),
+                }
+                if row.get("meta_instagram_account_id")
+                else None
+            ),
+        }
+        for row in pages_result.data or []
+    ]
+    return {
+        "businesses": list(business_by_id.values()),
+        "adAccounts": ad_accounts,
+        "pages": pages,
+    }
+
+
 @router.get("/assets")
-async def list_meta_assets(user: Annotated[CurrentUser, Depends(get_current_user)]) -> dict[str, object]:
+async def list_meta_assets(
+    user: Annotated[CurrentUser, Depends(get_current_user)],
+    refresh: bool = Query(default=False),
+) -> dict[str, object]:
     admin = get_supabase_admin()
     connection = (
         admin.table("meta_connections")
@@ -384,6 +456,15 @@ async def list_meta_assets(user: Annotated[CurrentUser, Depends(get_current_user
     )
     if not connection.data:
         return {"ok": True, "connected": False, "businesses": [], "adAccounts": [], "pages": []}
+
+    cached = _cached_meta_assets(admin, user.id)
+    if not refresh and (cached["adAccounts"] or cached["pages"] or cached["businesses"]):
+        return {
+            "ok": True,
+            "connected": True,
+            "cached": True,
+            **cached,
+        }
 
     token = connection.data[0]["access_token"]
     businesses = await _graph_get_all("me/businesses", token, fields="id,name,verification_status")

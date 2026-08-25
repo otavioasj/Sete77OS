@@ -1388,7 +1388,7 @@ export default function Home() {
     return data;
   }
 
-  async function refreshWorkspace(activeSession = session) {
+  async function refreshWorkspace(activeSession = session, forceMetaRefresh = false) {
     if (!activeSession?.access_token) return;
     setApiLoading(true);
     setApiMessage("");
@@ -1397,7 +1397,7 @@ export default function Home() {
         fetch("/api/clients", {
           headers: { Authorization: `Bearer ${activeSession.access_token}` }
         }).then((response) => response.json()),
-        fetch("/api/meta/assets", {
+        fetch(`/api/meta/assets${forceMetaRefresh ? "?refresh=true" : ""}`, {
           headers: { Authorization: `Bearer ${activeSession.access_token}` }
         }).then((response) => response.json()),
         fetch("/api/google-ads/status", {
@@ -1446,6 +1446,19 @@ export default function Home() {
       window.location.href = data.url;
     } catch (error) {
       setApiMessage(error instanceof Error ? error.message : "Nao foi possivel iniciar conexao Meta.");
+      setApiLoading(false);
+    }
+  }
+
+  async function refreshMetaAssets() {
+    setApiLoading(true);
+    setApiMessage("Atualizando contas Meta...");
+    try {
+      await refreshWorkspace(session, true);
+      setApiMessage("Contas Meta atualizadas.");
+    } catch (error) {
+      setApiMessage(error instanceof Error ? error.message : "Nao foi possivel atualizar contas Meta.");
+    } finally {
       setApiLoading(false);
     }
   }
@@ -2556,6 +2569,14 @@ export default function Home() {
               </div>
             ) : (
               <>
+                <div className="integration-actions">
+                  <button className="ghost-button" onClick={refreshMetaAssets} disabled={apiLoading}>
+                    <Activity size={17} /> Atualizar contas Meta
+                  </button>
+                  <button className="ghost-button" onClick={connectMeta} disabled={apiLoading}>
+                    <PlugZap size={17} /> Reconectar Meta
+                  </button>
+                </div>
                 <label className="search-field account-search">
                   <Search size={16} />
                   <input ref={accountSearchRef} value={accountSearch} onChange={(event) => setAccountSearch(event.target.value)} placeholder="Pesquisar conta, BM ou ID" />

@@ -943,6 +943,30 @@ export default function Home() {
       .slice(0, 4);
   }, [campaignRows, clientSummary]);
 
+  const reportCreativePreviewRows = useMemo(() => {
+    if (!clientSummary) return [];
+    return campaignRows
+      .flatMap((campaign) => {
+        const previews = campaignCreativePreviews(campaign);
+        return previews.slice(0, 3).map((preview) => ({
+          id: preview.ad_id || preview.creative_id || `${campaign.id}-${preview.ad_name}`,
+          title: preview.ad_name || preview.creative_name || "Criativo sem nome",
+          subtitle: preview.adset_name || campaign.name,
+          imageUrl: preview.image_url || preview.thumbnail_url || "",
+          campaign,
+        }));
+      })
+      .sort((a, b) => {
+        const resultDiff = b.campaign.totals.metaResults - a.campaign.totals.metaResults;
+        if (resultDiff) return resultDiff;
+        const aCost = a.campaign.totals.costPerResult || Number.POSITIVE_INFINITY;
+        const bCost = b.campaign.totals.costPerResult || Number.POSITIVE_INFINITY;
+        if (aCost !== bCost) return aCost - bCost;
+        return b.campaign.totals.spend - a.campaign.totals.spend;
+      })
+      .slice(0, 12);
+  }, [campaignRows, clientSummary]);
+
   const optimizationMetrics = useMemo(
     () => buildOptimizationMetrics(displayedMetricRows, previousDisplayedMetricRows),
     [displayedMetricRows, previousDisplayedMetricRows]
@@ -2962,7 +2986,24 @@ export default function Home() {
                         {reportType === "leads" ? "Leads gerados por dia e campanha" : "O que puxou mais e menos resultado"}
                       </h3>
                     </div>
-                    {reportType !== "leads" && reportInsight ? (
+                    {reportType === "creative" && reportCreativePreviewRows.length ? (
+                      <div className="report-creative-grid">
+                        {reportCreativePreviewRows.map((row, index) => (
+                          <div className="report-creative-card" key={row.id}>
+                            <img src={row.imageUrl} alt={row.title} loading="lazy" />
+                            <div>
+                              <span>{index === 0 ? "Mais puxou resultado" : `#${index + 1} em performance`}</span>
+                              <strong>{row.title}</strong>
+                              <small>{row.subtitle}</small>
+                              <p>
+                                {formatNumber(row.campaign.totals.metaResults)} {row.campaign.totals.resultLabel} com {formatCurrency(row.campaign.totals.spend)} investidos.
+                                Custo medio: {formatCurrency(row.campaign.totals.costPerResult)}.
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : reportType !== "leads" && reportInsight ? (
                       <div className="report-insight-grid">
                         <div>
                           <span>Mais puxou resultado</span>
@@ -2976,8 +3017,8 @@ export default function Home() {
                         </div>
                       </div>
                     ) : null}
-                    {reportType === "creative" && reportRows.every((row) => row.label === "Criativo nao informado") ? (
-                      <p className="muted">A sincronizacao atual esta em nivel de campanha. Para performance real de criativo/modelo, o proximo passo e ativar insights por anuncio na integracao da Meta.</p>
+                    {reportType === "creative" && !reportCreativePreviewRows.length && reportRows.every((row) => row.label === "Criativo nao informado") ? (
+                      <p className="muted">Sincronize o cliente novamente para buscar as imagens dos anuncios ativos. Se ainda nao aparecer, a conta Meta pode nao liberar preview do criativo para este anuncio.</p>
                     ) : null}
                     {reportType === "leads" ? (
                       <div className="report-data-table leads">

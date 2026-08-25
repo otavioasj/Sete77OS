@@ -2590,6 +2590,58 @@ svg {
   line-height: 1.45;
 }
 
+.report-creative-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.report-creative-card {
+  display: grid;
+  grid-template-columns: 116px minmax(0, 1fr);
+  gap: 14px;
+  align-items: center;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+
+.report-creative-card img {
+  width: 116px;
+  aspect-ratio: 1;
+  border-radius: 10px;
+  object-fit: cover;
+  background: var(--ink);
+  border: 1px solid var(--line);
+}
+
+.report-creative-card div {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+
+.report-creative-card span,
+.report-creative-card small {
+  color: var(--text-dim);
+  font-size: 0.76rem;
+  font-weight: 800;
+}
+
+.report-creative-card strong {
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  font-weight: 400;
+  overflow-wrap: anywhere;
+}
+
+.report-creative-card p {
+  margin: 0;
+  color: var(--text-dim);
+  line-height: 1.45;
+}
+
 .report-data-table {
   display: grid;
   gap: 8px;
@@ -3052,6 +3104,7 @@ svg {
   .calculator-result-grid,
   .report-metrics,
   .report-context-grid,
+  .report-creative-grid,
   .settings-form,
   .nav-list,
   .data-row {
@@ -3155,8 +3208,21 @@ svg {
 
   .report-section,
   .report-metrics div,
-  .report-data-row {
+  .report-data-row,
+  .report-creative-card {
     background: #fff;
+  }
+
+  .report-creative-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .report-creative-card {
+    break-inside: avoid;
+  }
+
+  .report-creative-card img {
+    width: 96px;
   }
 
   .report-team-section {

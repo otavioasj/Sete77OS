@@ -1500,6 +1500,10 @@ svg {
   margin-top: 18px;
 }
 
+.ai-search-toolbar {
+  grid-template-columns: minmax(220px, 1fr) auto;
+}
+
 .campaigns-panel {
   overflow: hidden;
 }

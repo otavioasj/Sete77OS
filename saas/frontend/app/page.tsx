@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import {
   Activity,
@@ -675,6 +675,8 @@ function aiPlanActionLines(content: string) {
 }
 
 export default function Home() {
+  const accountSearchRef = useRef<HTMLInputElement | null>(null);
+  const campaignSearchRef = useRef<HTMLInputElement | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -1144,6 +1146,20 @@ export default function Home() {
 
   function periodLabel(preset = datePreset) {
     return preset === "custom" ? `${customSince} a ${customUntil}` : datePresetLabels[preset];
+  }
+
+  function handleTopbarSearch() {
+    if (activeView === "Integracoes") {
+      setAccountsOpen(true);
+      setTimeout(() => accountSearchRef.current?.focus(), 0);
+      return;
+    }
+    if (activeView === "Otimizacao IA" || activeView === "Campanhas" || activeView === "Clientes") {
+      setTimeout(() => campaignSearchRef.current?.focus(), 0);
+      return;
+    }
+    setActiveView("Campanhas");
+    setTimeout(() => campaignSearchRef.current?.focus(), 0);
   }
 
   function syncPeriodPayload() {
@@ -1747,7 +1763,7 @@ export default function Home() {
             <h1>{activeView}</h1>
           </div>
           <div className="topbar-actions">
-            <button className="ghost-button"><Search size={18} /> Buscar</button>
+            <button className="ghost-button" onClick={handleTopbarSearch}><Search size={18} /> Buscar</button>
             <button className="ghost-button" onClick={signOut}><LogOut size={18} /> Sair</button>
           </div>
         </header>
@@ -2107,7 +2123,7 @@ export default function Home() {
               <div className="campaign-toolbar">
                 <label className="search-field">
                   <Search size={16} />
-                  <input value={campaignSearch} onChange={(event) => setCampaignSearch(event.target.value)} placeholder="Pesquisar campanha" />
+                  <input ref={campaignSearchRef} value={campaignSearch} onChange={(event) => setCampaignSearch(event.target.value)} placeholder="Pesquisar campanha" />
                 </label>
                 <div className="segmented-control" aria-label="Filtro de status">
                   <button className={campaignStatusFilter === "all" ? "active" : ""} onClick={() => applyCampaignStatusFilter("all")}>Todas</button>
@@ -2185,7 +2201,7 @@ export default function Home() {
               <>
                 <label className="search-field account-search">
                   <Search size={16} />
-                  <input value={accountSearch} onChange={(event) => setAccountSearch(event.target.value)} placeholder="Pesquisar conta, BM ou ID" />
+                  <input ref={accountSearchRef} value={accountSearch} onChange={(event) => setAccountSearch(event.target.value)} placeholder="Pesquisar conta, BM ou ID" />
                 </label>
                 {accountsOpen ? (
                   <div className="asset-list collapsible-list">
@@ -2269,7 +2285,7 @@ export default function Home() {
                 <div className="campaign-toolbar">
                   <label className="search-field">
                     <Search size={16} />
-                    <input value={campaignSearch} onChange={(event) => setCampaignSearch(event.target.value)} placeholder="Pesquisar campanha" />
+                    <input ref={campaignSearchRef} value={campaignSearch} onChange={(event) => setCampaignSearch(event.target.value)} placeholder="Pesquisar campanha" />
                   </label>
                   <div className="segmented-control" aria-label="Filtro de status">
                     <button className={campaignStatusFilter === "all" ? "active" : ""} onClick={() => applyCampaignStatusFilter("all")}>Todas</button>
@@ -2340,6 +2356,19 @@ export default function Home() {
                 </label>
                 {periodControls}
               </div>
+              {clientSummary ? (
+                <div className="campaign-toolbar ai-search-toolbar">
+                  <label className="search-field">
+                    <Search size={16} />
+                    <input ref={campaignSearchRef} value={campaignSearch} onChange={(event) => setCampaignSearch(event.target.value)} placeholder="Buscar campanha ou prioridade" />
+                  </label>
+                  <div className="segmented-control" aria-label="Filtro de status">
+                    <button className={campaignStatusFilter === "all" ? "active" : ""} onClick={() => applyCampaignStatusFilter("all")}>Todas</button>
+                    <button className={campaignStatusFilter === "active" ? "active" : ""} onClick={() => applyCampaignStatusFilter("active")}>Ativas</button>
+                    <button className={campaignStatusFilter === "inactive" ? "active" : ""} onClick={() => applyCampaignStatusFilter("inactive")}>Inativas</button>
+                  </div>
+                </div>
+              ) : null}
               {!clientSummary ? (
                 <p className="muted compact-muted">Selecione um cliente para gerar prioridades com base nas campanhas sincronizadas.</p>
               ) : (

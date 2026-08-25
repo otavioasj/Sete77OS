@@ -1065,15 +1065,23 @@ svg {
 
 .ranking-row {
   display: grid;
-  grid-template-columns: minmax(0, 1.4fr) minmax(88px, 0.6fr) minmax(112px, 0.7fr);
-  gap: 9px;
-  align-items: center;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
   padding: 12px;
+}
+
+.ranking-campaign-name {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
 }
 
 .ranking-row strong {
   min-width: 0;
-  overflow-wrap: anywhere;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .ranking-row span,
@@ -1083,8 +1091,27 @@ svg {
   font-weight: 800;
 }
 
+.ranking-row > span {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.ranking-row > span::before {
+  color: var(--text-faint);
+  font-weight: 800;
+}
+
+.ranking-row > span:nth-of-type(1)::before {
+  content: "Investimento";
+}
+
+.ranking-row > span:nth-of-type(2)::before {
+  content: "Resultado";
+}
+
 .ranking-row small {
-  grid-column: 1 / -1;
+  line-height: 1.35;
 }
 
 .platform-row {
@@ -1178,14 +1205,14 @@ svg {
 
 .reasoning-chain div {
   display: grid;
-  gap: 5px;
-  min-height: 94px;
+  gap: 7px;
+  min-height: 132px;
   padding: 14px;
 }
 
 .reasoning-chain strong {
   font-family: var(--font-display);
-  font-size: 1.35rem;
+  font-size: 1.22rem;
   font-weight: 400;
   overflow-wrap: anywhere;
 }
@@ -1194,6 +1221,13 @@ svg {
   color: var(--text-dim);
   font-size: 0.78rem;
   font-weight: 800;
+}
+
+.reasoning-chain small {
+  color: var(--text-dim);
+  font-size: 0.76rem;
+  font-weight: 600;
+  line-height: 1.45;
 }
 
 /* ---------------------------------------------------------------------- */

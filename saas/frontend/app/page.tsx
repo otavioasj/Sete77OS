@@ -1892,10 +1892,12 @@ export default function Home() {
                 <div className="command-ranking">
                   {campaignRows.slice(0, 5).map((campaign) => (
                     <div className="ranking-row" key={campaign.id}>
-                      <strong>{campaign.name}</strong>
+                      <div className="ranking-campaign-name">
+                        <strong title={campaign.name}>{campaign.name}</strong>
+                        <small>{campaign.recommendation}</small>
+                      </div>
                       <span>{formatCurrency(campaign.totals.spend)}</span>
                       <span>{formatNumber(campaign.totals.metaResults)} {campaign.totals.resultLabel}</span>
-                      <small>{campaign.recommendation}</small>
                     </div>
                   ))}
                   {!campaignRows.length ? <p className="muted compact-muted">Nenhuma campanha carregada para o periodo.</p> : null}
@@ -1974,15 +1976,31 @@ export default function Home() {
                 <div className="panel-head">
                   <div>
                     <p className="eyebrow">IA consultiva</p>
-                    <h3>Cadeia de decisao</h3>
+                    <h3>Leitura em linguagem simples</h3>
                   </div>
                   <Bot size={21} />
                 </div>
                 <div className="reasoning-chain">
-                  <div><strong>{displayedMetricRows.length || 0}</strong><span>linhas de dados</span></div>
-                  <div><strong>{aiPriorities.length || campaignRows.length}</strong><span>padroes detectados</span></div>
-                  <div><strong>{actionItems.length}</strong><span>acoes registradas</span></div>
-                  <div><strong>{aiRecommendation ? "Ativa" : "Pendente"}</strong><span>analise IA</span></div>
+                  <div>
+                    <span>Base analisada</span>
+                    <strong>{displayedMetricRows.length || 0}</strong>
+                    <small>Dias e campanhas usados para calcular gasto, leads, conversas, CTR e custo.</small>
+                  </div>
+                  <div>
+                    <span>Pontos de atencao</span>
+                    <strong>{aiPriorities.length || campaignRows.length}</strong>
+                    <small>Campanhas que merecem acao: escalar, revisar criativo, pausar ou monitorar.</small>
+                  </div>
+                  <div>
+                    <span>Acoes salvas</span>
+                    <strong>{actionItems.length}</strong>
+                    <small>Decisoes registradas para acompanhar o que foi aprovado, rejeitado ou concluido.</small>
+                  </div>
+                  <div>
+                    <span>Plano consultivo</span>
+                    <strong>{aiRecommendation ? "Gerado" : "Pendente"}</strong>
+                    <small>{aiRecommendation ? "A IA ja montou uma leitura com proximos passos." : "Clique em Solicitar analise para gerar recomendacoes explicadas."}</small>
+                  </div>
                 </div>
               </article>
             </section>

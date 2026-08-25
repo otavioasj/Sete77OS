@@ -28,8 +28,7 @@ class Settings(BaseSettings):
     meta_api_version: str = "v21.0"
     meta_webhook_verify_token: str = ""
     meta_oauth_scopes: str = (
-        "ads_read,ads_management,business_management,pages_show_list,pages_read_engagement,"
-        "whatsapp_business_management,whatsapp_business_messaging"
+        "ads_read,ads_management,business_management,pages_show_list,pages_read_engagement"
     )
     google_ads_client_id: str = ""
     google_ads_client_secret: str = ""

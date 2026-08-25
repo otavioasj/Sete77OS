@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Annotated
 
 from fastapi import APIRouter, Depends
+from postgrest.exceptions import APIError
 
 from ..auth import CurrentUser, get_current_user
 from ..supabase_client import get_supabase_admin
@@ -22,15 +23,30 @@ def whatsapp_status(user: Annotated[CurrentUser, Depends(get_current_user)]) -> 
         .limit(1)
         .execute()
     )
-    clients = (
-        admin.table("clients")
-        .select(
-            "id,name,whatsapp_number,whatsapp_connected,whatsapp_connection_mode,"
-            "whatsapp_phone_number_id,whatsapp_business_account_id,whatsapp_real_numbers,whatsapp_notes,meta_ad_account_id"
+    try:
+        clients = (
+            admin.table("clients")
+            .select(
+                "id,name,whatsapp_number,whatsapp_connected,whatsapp_connection_mode,"
+                "whatsapp_phone_number_id,whatsapp_business_account_id,whatsapp_real_numbers,whatsapp_notes,meta_ad_account_id"
+            )
+            .eq("owner_id", user.id)
+            .execute()
         )
-        .eq("owner_id", user.id)
-        .execute()
-    )
+    except APIError as exc:
+        if "whatsapp_" not in str(exc):
+            raise
+        return {
+            "ok": True,
+            "schemaReady": False,
+            "connected": False,
+            "source": "client_settings",
+            "businessAccounts": [],
+            "phoneNumbers": [],
+            "pages": [],
+            "linkedClients": [],
+            "message": "Campos de WhatsApp ainda nao existem no Supabase. Aplique a migracao para habilitar a configuracao por cliente.",
+        }
     connected_clients = [client for client in (clients.data or []) if client.get("whatsapp_connected") or client.get("whatsapp_number")]
     return {
         "ok": True,

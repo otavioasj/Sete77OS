@@ -62,6 +62,17 @@ def _get_or_create_organization_id(client, user: CurrentUser) -> str:
     return created.data[0]["id"]
 
 
+def _normalize_meta_account_id(value: str | None) -> str:
+    return (value or "").removeprefix("act_").strip()
+
+
+def _canonical_meta_account_id(value: str | None) -> str | None:
+    normalized = _normalize_meta_account_id(value)
+    if not normalized:
+        return None
+    return f"act_{normalized}" if normalized.isdigit() else value
+
+
 @router.get("")
 def list_clients(user: Annotated[CurrentUser, Depends(get_current_user)]) -> dict[str, object]:
     client = get_supabase_admin()
@@ -83,24 +94,26 @@ def create_client(
     client = get_supabase_admin()
     organization_id = _get_or_create_organization_id(client, user)
 
-    if payload.meta_ad_account_id:
+    meta_ad_account_id = _canonical_meta_account_id(payload.meta_ad_account_id)
+
+    if meta_ad_account_id:
+        normalized_payload_account = _normalize_meta_account_id(meta_ad_account_id)
         existing = (
             client.table("clients")
             .select("*")
             .eq("owner_id", user.id)
-            .eq("meta_ad_account_id", payload.meta_ad_account_id)
-            .limit(1)
             .execute()
         )
-        if existing.data:
-            return {"ok": True, "client": existing.data[0], "alreadyExists": True}
+        for existing_client in existing.data or []:
+            if _normalize_meta_account_id(existing_client.get("meta_ad_account_id")) == normalized_payload_account:
+                return {"ok": True, "client": existing_client, "alreadyExists": True}
 
     row = {
         "organization_id": organization_id,
         "owner_id": user.id,
         "name": payload.name,
         "source": payload.source,
-        "meta_ad_account_id": payload.meta_ad_account_id,
+        "meta_ad_account_id": meta_ad_account_id,
         "meta_page_id": payload.meta_page_id,
         "meta_instagram_account_id": payload.meta_instagram_account_id,
     }

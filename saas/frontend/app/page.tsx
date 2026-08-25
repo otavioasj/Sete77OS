@@ -281,6 +281,16 @@ function numberValue(value: unknown): number {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function normalizeMetaAccountId(value?: string | null) {
+  return String(value ?? "").replace(/^act_/i, "").trim();
+}
+
+function metaAccountKeys(account: Pick<MetaAdAccount, "id" | "account_id">) {
+  return [account.id, account.account_id, normalizeMetaAccountId(account.id), normalizeMetaAccountId(account.account_id)]
+    .filter(Boolean)
+    .map((value) => String(value));
+}
+
 function actionTotal(actions: { action_type?: string; value?: string | number }[] | undefined, actionTypes: string[]) {
   return (actions ?? []).reduce((total, action) => {
     return actionTypes.includes(action.action_type ?? "") ? total + numberValue(action.value) : total;
@@ -698,10 +708,15 @@ export default function Home() {
     return value.charAt(0).toUpperCase() + value.slice(1);
   }, [session]);
 
-  const connectedAccountIds = useMemo(
-    () => new Set(clients.map((client) => client.meta_ad_account_id).filter(Boolean)),
-    [clients]
-  );
+  const connectedAccountByKey = useMemo(() => {
+    const mapped = new Map<string, ClientRecord>();
+    clients.forEach((client) => {
+      const accountId = client.meta_ad_account_id;
+      if (!accountId) return;
+      [accountId, normalizeMetaAccountId(accountId)].filter(Boolean).forEach((key) => mapped.set(String(key), client));
+    });
+    return mapped;
+  }, [clients]);
 
   const filteredAdAccounts = useMemo(() => {
     const search = accountSearch.trim().toLowerCase();
@@ -1156,6 +1171,15 @@ export default function Home() {
   }
 
   async function createClientFromAdAccount(account: MetaAdAccount) {
+    const existingClient = metaAccountKeys(account)
+      .map((key) => connectedAccountByKey.get(key))
+      .find(Boolean);
+    if (existingClient) {
+      setSelectedClientId(existingClient.id);
+      await loadClientSummary(existingClient.id);
+      setActiveView("Clientes");
+      return;
+    }
     setApiLoading(true);
     setApiMessage("");
     try {
@@ -2111,22 +2135,27 @@ export default function Home() {
                 </label>
                 {accountsOpen ? (
                   <div className="asset-list collapsible-list">
-                    {filteredAdAccounts.map((account) => (
-                      <div className="asset-row" key={account.id}>
-                      <div>
-                          <strong>{account.name}</strong>
-                          <p>{account.id} {account.currency ? `- ${account.currency}` : ""}</p>
-                          {account.business ? <small>{account.business.name}</small> : null}
+                    {filteredAdAccounts.map((account) => {
+                      const linkedClient = metaAccountKeys(account)
+                        .map((key) => connectedAccountByKey.get(key))
+                        .find(Boolean);
+                      return (
+                        <div className="asset-row" key={account.id}>
+                        <div>
+                            <strong>{account.name}</strong>
+                            <p>{account.id} {account.currency ? `- ${account.currency}` : ""}</p>
+                            {account.business ? <small>{account.business.name}</small> : null}
+                          </div>
+                          <button
+                            className="ghost-button"
+                            onClick={() => createClientFromAdAccount(account)}
+                            disabled={apiLoading}
+                          >
+                            <Users size={17} /> {linkedClient ? "Abrir cliente" : "Criar cliente"}
+                          </button>
                         </div>
-                        <button
-                          className="ghost-button"
-                          onClick={() => createClientFromAdAccount(account)}
-                          disabled={apiLoading || connectedAccountIds.has(account.id)}
-                        >
-                          <Users size={17} /> {connectedAccountIds.has(account.id) ? "Cliente criado" : "Criar cliente"}
-                        </button>
-                      </div>
-                    ))}
+                      );
+                    })}
                     {!filteredAdAccounts.length ? <p className="muted">Nenhuma conta encontrada.</p> : null}
                   </div>
                 ) : (

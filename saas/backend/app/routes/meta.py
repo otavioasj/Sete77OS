@@ -209,6 +209,14 @@ def _creative_preview_from_ad(ad: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _canonical_ad_account_id(value: str | None) -> str | None:
+    clean = (value or "").strip()
+    if not clean:
+        return None
+    normalized = clean.removeprefix("act_")
+    return f"act_{normalized}" if normalized.isdigit() else clean
+
+
 METRICS_SELECT = (
     "campaign_external_id,campaign_name,campaign,platform,ad_group,ad_name,spend,impressions,reach,"
     "clicks,inline_link_clicks,leads,metric_date,raw_json"
@@ -405,7 +413,7 @@ async def sync_meta_client(
         raise HTTPException(status_code=404, detail="Cliente nao encontrado.")
 
     client_row = client_result.data[0]
-    ad_account_id = client_row.get("meta_ad_account_id")
+    ad_account_id = _canonical_ad_account_id(client_row.get("meta_ad_account_id"))
     if not ad_account_id:
         raise HTTPException(status_code=400, detail="Cliente sem conta Meta vinculada.")
 

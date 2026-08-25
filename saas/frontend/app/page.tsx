@@ -1786,7 +1786,7 @@ export default function Home() {
           <p className="eyebrow">CREATIVE ADS</p>
           <h1>O painel de decisao para gestor de trafego vender mais tempo.</h1>
           <p className="auth-copy">
-            Conecte Meta Ads, Google Ads, WhatsApp e IA em um fluxo simples: diagnostico, recomendacao, relatorio e acao.
+            Conecte Meta Ads e IA em um fluxo simples: sincronizacao de campanhas, diagnostico, recomendacao, relatorio e acao.
           </p>
           <div className="auth-proof">
             <span><ShieldCheck size={18} /> Supabase conectado</span>

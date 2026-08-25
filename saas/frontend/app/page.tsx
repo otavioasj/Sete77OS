@@ -82,8 +82,26 @@ type GoogleAdsStatus = {
 };
 
 type WhatsAppStatus = {
+  schemaReady?: boolean;
   connected: boolean;
   source: string;
+  businessAccounts: {
+    waba_id: string;
+    business_id?: string;
+    name: string;
+    ownership_type?: string;
+    currency?: string;
+    updated_at?: string;
+  }[];
+  phoneNumbers: {
+    waba_id: string;
+    phone_number_id: string;
+    display_phone_number: string;
+    verified_name?: string;
+    quality_rating?: string;
+    platform_type?: string;
+    code_verification_status?: string;
+  }[];
   pages: { meta_page_id: string; name: string; category?: string; instagram_username?: string }[];
   linkedClients: { id: string; name: string; meta_page_id?: string | null }[];
   message: string;
@@ -1383,8 +1401,11 @@ export default function Home() {
         accounts: googleData.accounts ?? [],
       });
       setWhatsappStatus({
+        schemaReady: whatsappData.schemaReady ?? true,
         connected: Boolean(whatsappData.connected),
         source: whatsappData.source ?? "meta",
+        businessAccounts: whatsappData.businessAccounts ?? [],
+        phoneNumbers: whatsappData.phoneNumbers ?? [],
         pages: whatsappData.pages ?? [],
         linkedClients: whatsappData.linkedClients ?? [],
         message: whatsappData.message ?? "",
@@ -1429,6 +1450,20 @@ export default function Home() {
       await refreshWorkspace();
     } catch (error) {
       setApiMessage(error instanceof Error ? error.message : "Nao foi possivel atualizar contas Google Ads.");
+    } finally {
+      setApiLoading(false);
+    }
+  }
+
+  async function refreshWhatsAppAssets() {
+    setApiLoading(true);
+    setApiMessage("Atualizando WhatsApp...");
+    try {
+      const data = await apiFetch("/whatsapp/refresh", { method: "POST" });
+      setApiMessage(`${data.businessAccountsSynced ?? 0} contas WhatsApp e ${data.phoneNumbersSynced ?? 0} numeros atualizados.`);
+      await refreshWorkspace();
+    } catch (error) {
+      setApiMessage(error instanceof Error ? error.message : "Nao foi possivel atualizar WhatsApp.");
     } finally {
       setApiLoading(false);
     }
@@ -2540,28 +2575,55 @@ export default function Home() {
             <div className="panel-head">
               <div>
                 <p className="eyebrow">WhatsApp</p>
-                <h3>{whatsappStatus?.connected ? "Ligado a Meta" : "Aguardando Meta"}</h3>
+                <h3>{whatsappStatus?.phoneNumbers.length ? "Numeros conectados" : whatsappStatus?.connected ? "Ligado a Meta" : "Aguardando Meta"}</h3>
               </div>
               <PlugZap size={21} />
             </div>
             <div className="integration-status-list">
               <div>
-                <strong>{whatsappStatus?.pages.length ?? assets?.pages.length ?? 0}</strong>
-                <span>paginas conectadas</span>
+                <strong>{whatsappStatus?.businessAccounts.length ?? 0}</strong>
+                <span>contas WhatsApp Business</span>
               </div>
               <div>
-                <strong>{displayedTotals?.conversations ?? clientSummary?.totals.conversations ?? 0}</strong>
-                <span>conversas no periodo</span>
+                <strong>{whatsappStatus?.phoneNumbers.length ?? 0}</strong>
+                <span>numeros conectados</span>
               </div>
             </div>
             <p className="muted">{whatsappStatus?.message || "As conversas de WhatsApp aparecem quando a campanha usa mensagens como destino."}</p>
+            {whatsappStatus?.phoneNumbers.length ? (
+              <div className="asset-list compact-google-list">
+                {whatsappStatus.phoneNumbers.map((phone) => (
+                  <div className="asset-row" key={phone.phone_number_id}>
+                    <div>
+                      <strong>{phone.verified_name || phone.display_phone_number || "Numero WhatsApp"}</strong>
+                      <p>{phone.display_phone_number || phone.phone_number_id}</p>
+                      <small>{phone.quality_rating ? `Qualidade ${phone.quality_rating}` : "Numero via WhatsApp Business"}</small>
+                    </div>
+                    <span className="insight-pill green">{phone.code_verification_status || "Ativo"}</span>
+                  </div>
+                ))}
+              </div>
+            ) : whatsappStatus?.businessAccounts.length ? (
+              <div className="asset-list compact-google-list">
+                {whatsappStatus.businessAccounts.map((waba) => (
+                  <div className="asset-row" key={waba.waba_id}>
+                    <div>
+                      <strong>{waba.name || "WhatsApp Business"}</strong>
+                      <p>{waba.waba_id}</p>
+                      <small>{waba.ownership_type === "client" ? "Conta de cliente" : "Conta propria"}</small>
+                    </div>
+                    <span className="insight-pill amber">Sem numero</span>
+                  </div>
+                ))}
+              </div>
+            ) : null}
             {!assets?.connected ? (
               <button className="ghost-button" onClick={connectMeta} disabled={apiLoading}>
                 <PlugZap size={17} /> Conectar pela Meta
               </button>
             ) : (
-              <button className="ghost-button" onClick={() => void refreshWorkspace()} disabled={apiLoading}>
-                <Activity size={17} /> Atualizar canais
+              <button className="ghost-button" onClick={refreshWhatsAppAssets} disabled={apiLoading || whatsappStatus?.schemaReady === false}>
+                <Activity size={17} /> Atualizar WhatsApp
               </button>
             )}
           </article>
@@ -2595,7 +2657,7 @@ export default function Home() {
                 <h3>{clientSummary ? `${campaignRows.length} campanhas analisadas` : "Selecione um cliente"}</h3>
               </div>
               <button className="ghost-button" onClick={() => selectedClientId && syncClient(selectedClientId)} disabled={apiLoading || !selectedClientId}>
-                <Activity size={18} /> Sincronizar Meta
+                <Activity size={18} /> Sincronizar
               </button>
             </div>
             <div className="campaigns-controls">

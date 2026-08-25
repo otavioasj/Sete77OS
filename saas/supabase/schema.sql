@@ -108,6 +108,38 @@ create table if not exists public.google_ads_customer_accounts (
   unique (owner_id, customer_id)
 );
 
+create table if not exists public.whatsapp_business_accounts (
+  id uuid primary key default gen_random_uuid(),
+  owner_id uuid not null,
+  waba_id text not null,
+  business_id text,
+  name text not null default '',
+  ownership_type text not null default '',
+  timezone_id text,
+  currency text,
+  message_template_namespace text,
+  raw jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (owner_id, waba_id)
+);
+
+create table if not exists public.whatsapp_phone_numbers (
+  id uuid primary key default gen_random_uuid(),
+  owner_id uuid not null,
+  waba_id text not null,
+  phone_number_id text not null,
+  display_phone_number text not null default '',
+  verified_name text not null default '',
+  quality_rating text,
+  platform_type text,
+  code_verification_status text,
+  raw jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (owner_id, phone_number_id)
+);
+
 alter table public.clients enable row level security;
 alter table public.meta_connections enable row level security;
 alter table public.meta_businesses enable row level security;
@@ -115,6 +147,8 @@ alter table public.meta_ad_accounts enable row level security;
 alter table public.meta_pages enable row level security;
 alter table public.google_ads_connections enable row level security;
 alter table public.google_ads_customer_accounts enable row level security;
+alter table public.whatsapp_business_accounts enable row level security;
+alter table public.whatsapp_phone_numbers enable row level security;
 
 drop policy if exists "clients_owner_select" on public.clients;
 create policy "clients_owner_select" on public.clients
@@ -142,6 +176,14 @@ create policy "meta_pages_owner_select" on public.meta_pages
 
 drop policy if exists "google_ads_customer_accounts_owner_select" on public.google_ads_customer_accounts;
 create policy "google_ads_customer_accounts_owner_select" on public.google_ads_customer_accounts
+  for select using (auth.uid() = owner_id);
+
+drop policy if exists "whatsapp_business_accounts_owner_select" on public.whatsapp_business_accounts;
+create policy "whatsapp_business_accounts_owner_select" on public.whatsapp_business_accounts
+  for select using (auth.uid() = owner_id);
+
+drop policy if exists "whatsapp_phone_numbers_owner_select" on public.whatsapp_phone_numbers;
+create policy "whatsapp_phone_numbers_owner_select" on public.whatsapp_phone_numbers
   for select using (auth.uid() = owner_id);
 
 -- Tokens ficam acessiveis apenas via service role no backend.

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from app.core.rules import AccountThresholds, RuleResult, evaluate
+from app.core.rules import AccountThresholds, evaluate
 
 
 def _thresholds(**overrides) -> AccountThresholds:

@@ -3,7 +3,6 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends
-
 from supabase import Client
 
 from app.auth.models import User
@@ -176,10 +175,12 @@ async def sync_campaigns(
                 # Fetch insights
                 insights = await meta.get_insights(camp["id"], date_preset=body.date_preset)
                 for row in insights:
-                    leads = int(MetaAdsClient._extract_metric(
-                        row.get("actions"),
-                        ("messaging_conversation_started", "lead", "contact", "omni_lead"),
-                    ))
+                    leads = int(
+                        MetaAdsClient._extract_metric(
+                            row.get("actions"),
+                            ("messaging_conversation_started", "lead", "contact", "omni_lead"),
+                        )
+                    )
                     cpl = MetaAdsClient._extract_metric(
                         row.get("cost_per_action_type"),
                         ("messaging_conversation_started", "lead", "contact", "omni_lead"),
@@ -243,18 +244,23 @@ async def create_draft(
 
     row = (
         supabase.table("campaign_drafts")
-        .insert({
-            "owner_id": user.id,
-            "ad_account_id": acc["id"],
-            "payload": body.payload,
-            "status": "rascunho",
-        })
+        .insert(
+            {
+                "owner_id": user.id,
+                "ad_account_id": acc["id"],
+                "payload": body.payload,
+                "status": "rascunho",
+            }
+        )
         .execute()
         .data[0]
     )
     return DraftOut(
-        id=row["id"], status=row["status"], payload=row["payload"],
-        meta_campaign_id=row.get("meta_campaign_id"), erro_detalhes=row.get("erro_detalhes"),
+        id=row["id"],
+        status=row["status"],
+        payload=row["payload"],
+        meta_campaign_id=row.get("meta_campaign_id"),
+        erro_detalhes=row.get("erro_detalhes"),
     )
 
 
@@ -274,8 +280,11 @@ async def update_draft(
         .data[0]
     )
     return DraftOut(
-        id=row["id"], status=row["status"], payload=row["payload"],
-        meta_campaign_id=row.get("meta_campaign_id"), erro_detalhes=row.get("erro_detalhes"),
+        id=row["id"],
+        status=row["status"],
+        payload=row["payload"],
+        meta_campaign_id=row.get("meta_campaign_id"),
+        erro_detalhes=row.get("erro_detalhes"),
     )
 
 
@@ -320,11 +329,13 @@ async def publish_draft(
 
         # Success — update draft and create campaign
         meta_id = result["id"]
-        supabase.table("campaign_drafts").update({
-            "status": "criado",
-            "meta_campaign_id": meta_id,
-            "atualizado_em": datetime.now(timezone.utc).isoformat(),
-        }).eq("id", draft_id).execute()
+        supabase.table("campaign_drafts").update(
+            {
+                "status": "criado",
+                "meta_campaign_id": meta_id,
+                "atualizado_em": datetime.now(timezone.utc).isoformat(),
+            }
+        ).eq("id", draft_id).execute()
 
         acc = (
             supabase.table("ad_accounts")
@@ -335,30 +346,37 @@ async def publish_draft(
             .execute()
             .data
         )
-        supabase.table("campaigns").insert({
-            "ad_account_id": acc["id"],
-            "owner_id": user.id,
-            "meta_campaign_id": meta_id,
-            "name": payload["name"],
-            "objective": payload["objective"],
-            "status": "PAUSED",
-            "daily_budget": (payload.get("daily_budget_cents") or 0) / 100,
-            "lifetime_budget": (payload.get("lifetime_budget_cents") or 0) / 100,
-            "platform": "meta",
-        }).execute()
+        supabase.table("campaigns").insert(
+            {
+                "ad_account_id": acc["id"],
+                "owner_id": user.id,
+                "meta_campaign_id": meta_id,
+                "name": payload["name"],
+                "objective": payload["objective"],
+                "status": "PAUSED",
+                "daily_budget": (payload.get("daily_budget_cents") or 0) / 100,
+                "lifetime_budget": (payload.get("lifetime_budget_cents") or 0) / 100,
+                "platform": "meta",
+            }
+        ).execute()
 
         updated = supabase.table("campaign_drafts").select("*").eq("id", draft_id).single().execute().data
         return DraftOut(
-            id=updated["id"], status=updated["status"], payload=updated["payload"],
-            meta_campaign_id=updated.get("meta_campaign_id"), erro_detalhes=updated.get("erro_detalhes"),
+            id=updated["id"],
+            status=updated["status"],
+            payload=updated["payload"],
+            meta_campaign_id=updated.get("meta_campaign_id"),
+            erro_detalhes=updated.get("erro_detalhes"),
         )
 
     except Exception as exc:
-        supabase.table("campaign_drafts").update({
-            "status": "erro",
-            "erro_detalhes": str(exc),
-            "atualizado_em": datetime.now(timezone.utc).isoformat(),
-        }).eq("id", draft_id).execute()
+        supabase.table("campaign_drafts").update(
+            {
+                "status": "erro",
+                "erro_detalhes": str(exc),
+                "atualizado_em": datetime.now(timezone.utc).isoformat(),
+            }
+        ).eq("id", draft_id).execute()
         raise
     finally:
         await meta.close()
@@ -392,9 +410,7 @@ async def activate_campaign(
 
     try:
         await meta.update_status(camp["meta_campaign_id"], "ACTIVE")
-        supabase.table("campaigns").update(
-            {"status": "ACTIVE"}
-        ).eq("id", campaign_id).execute()
+        supabase.table("campaigns").update({"status": "ACTIVE"}).eq("id", campaign_id).execute()
         return {"success": True, "status": "ACTIVE"}
     finally:
         await meta.close()
@@ -422,9 +438,7 @@ async def pause_campaign(
 
     try:
         await meta.update_status(camp["meta_campaign_id"], "PAUSED")
-        supabase.table("campaigns").update(
-            {"status": "PAUSED"}
-        ).eq("id", campaign_id).execute()
+        supabase.table("campaigns").update({"status": "PAUSED"}).eq("id", campaign_id).execute()
         return {"success": True, "status": "PAUSED"}
     finally:
         await meta.close()

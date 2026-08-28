@@ -18,10 +18,18 @@ from app.core.rules import AccountThresholds
 
 def _row(**kw):
     base = {
-        "campaign": "C1", "spend": 100, "leads": 5, "clicks": 50,
-        "impressions": 1000, "ctr": 5.0, "cpl": 20, "frequency": 1.5,
-        "effective_status": "ACTIVE", "entity_level": "campaign",
-        "entity_name": "C1", "meta_entity_id": "c1",
+        "campaign": "C1",
+        "spend": 100,
+        "leads": 5,
+        "clicks": 50,
+        "impressions": 1000,
+        "ctr": 5.0,
+        "cpl": 20,
+        "frequency": 1.5,
+        "effective_status": "ACTIVE",
+        "entity_level": "campaign",
+        "entity_name": "C1",
+        "meta_entity_id": "c1",
     }
     base.update(kw)
     return base
@@ -109,10 +117,14 @@ async def test_analyze_performance_without_api_key():
 @pytest.mark.asyncio
 async def test_generate_strategy():
     mock_msg = MagicMock()
-    mock_msg.content = [MagicMock(text=(
-        '{"verba_diaria": 50, "dias": 20, "estrutura": "CBO 2 conjuntos",'
-        ' "publico": "SP 25-45", "copy": "Texto aqui", "justificativa": "Razão"}'
-    ))]
+    mock_msg.content = [
+        MagicMock(
+            text=(
+                '{"verba_diaria": 50, "dias": 20, "estrutura": "CBO 2 conjuntos",'
+                ' "publico": "SP 25-45", "copy": "Texto aqui", "justificativa": "Razão"}'
+            )
+        )
+    ]
     mock_client = MagicMock()
     mock_client.messages.create = AsyncMock(return_value=mock_msg)
 

@@ -2,6 +2,7 @@
 
 Migrated from campaign_optimizer/core/ai.py — OpenAI → Claude (Anthropic SDK).
 """
+
 from __future__ import annotations
 
 import json
@@ -93,8 +94,7 @@ async def analyze_performance(
     """
     alerts = evaluate(metrics, thresholds)
     alerts_dicts = [
-        {"severity": a.severity, "rule_name": a.rule_name, "reason": a.reason, "campaign": a.campaign}
-        for a in alerts
+        {"severity": a.severity, "rule_name": a.rule_name, "reason": a.reason, "campaign": a.campaign} for a in alerts
     ]
     kpis = summarize_kpis(metrics)
 

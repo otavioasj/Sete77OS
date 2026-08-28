@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from fastapi import Depends, Header
-
 from supabase import Client, create_client
 
 from app.auth.models import User
@@ -66,26 +65,21 @@ async def build_meta_client(
     )
 
     # Find the meta connection for this user
-    connection = (
-        supabase.table("meta_connections")
-        .select("id")
-        .eq("owner_id", user.id)
-        .single()
-        .execute()
-        .data
-    )
+    connection = supabase.table("meta_connections").select("id").eq("owner_id", user.id).single().execute().data
 
     token = await tm.refresh_if_needed(connection["id"], supabase)
 
     async def audit_fn(*, user_id, action, entity, request, response, error):
-        supabase.table("audit_log").insert({
-            "owner_id": user_id,
-            "acao": action,
-            "entidade": entity,
-            "request": request if isinstance(request, dict) else {"raw": str(request)},
-            "response": response if isinstance(response, dict) else {"raw": str(response)},
-            "origem": "api",
-        }).execute()
+        supabase.table("audit_log").insert(
+            {
+                "owner_id": user_id,
+                "acao": action,
+                "entidade": entity,
+                "request": request if isinstance(request, dict) else {"raw": str(request)},
+                "response": response if isinstance(response, dict) else {"raw": str(response)},
+                "origem": "api",
+            }
+        ).execute()
 
     return MetaAdsClient(
         access_token=token,

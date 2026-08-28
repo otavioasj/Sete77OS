@@ -127,14 +127,7 @@ class TokenManager:
 
     async def revoke(self, connection_id: str, supabase) -> None:
         """Revoke token on Meta and delete the connection."""
-        row = (
-            supabase.table("meta_connections")
-            .select("access_token")
-            .eq("id", connection_id)
-            .single()
-            .execute()
-            .data
-        )
+        row = supabase.table("meta_connections").select("access_token").eq("id", connection_id).single().execute().data
         token = self.decrypt(row["access_token"])
 
         async with httpx.AsyncClient(timeout=30) as client:

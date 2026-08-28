@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, File, Query, UploadFile
-
 from supabase import Client
 
 from app.analysis.schemas import (
@@ -198,12 +197,14 @@ async def upload_creative(
     # Schema: owner_id (not user_id)
     row = (
         supabase.table("creatives")
-        .insert({
-            "owner_id": user.id,
-            "ad_account_id": acc["id"],
-            "tipo": tipo,
-            "storage_path": storage_path,
-        })
+        .insert(
+            {
+                "owner_id": user.id,
+                "ad_account_id": acc["id"],
+                "tipo": tipo,
+                "storage_path": storage_path,
+            }
+        )
         .execute()
         .data[0]
     )

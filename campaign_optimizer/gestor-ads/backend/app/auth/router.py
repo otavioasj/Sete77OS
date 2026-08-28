@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Query
-
 import httpx
+from fastapi import APIRouter, Depends, Query
 from supabase import Client
 
 from app.auth.meta_oauth import generate_oauth_url, validate_state
@@ -49,9 +48,7 @@ async def login(
     supabase: Client = Depends(get_supabase),
 ):
     try:
-        result = supabase.auth.sign_in_with_password(
-            {"email": body.email, "password": body.password}
-        )
+        result = supabase.auth.sign_in_with_password({"email": body.email, "password": body.password})
         return AuthResponse(
             access_token=result.session.access_token,
             user_id=str(result.user.id),
@@ -102,17 +99,6 @@ async def meta_callback(
         on_conflict="owner_id,meta_user_id",
     ).execute()
 
-    # Get the connection ID
-    conn = (
-        supabase.table("meta_connections")
-        .select("id")
-        .eq("owner_id", user_id)
-        .eq("meta_user_id", meta_user["id"])
-        .single()
-        .execute()
-        .data
-    )
-
     # List ad accounts
     async with httpx.AsyncClient(timeout=30) as client:
         resp = await client.get(
@@ -136,9 +122,7 @@ async def meta_callback(
             "platform": "meta",
             "status": "ACTIVE" if acc.get("account_status") == 1 else "INACTIVE",
         }
-        supabase.table("ad_accounts").upsert(
-            account_row, on_conflict="client_id,external_id"
-        ).execute()
+        supabase.table("ad_accounts").upsert(account_row, on_conflict="client_id,external_id").execute()
         saved_accounts.append({"act_id": acc["id"], "nome": acc.get("name", "")})
 
     return MetaCallbackResponse(

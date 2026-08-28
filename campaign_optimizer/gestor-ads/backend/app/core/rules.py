@@ -3,6 +3,7 @@
 Migrated from campaign_optimizer/core/rules.py and expanded with 2 new rules.
 Thresholds come from ad_accounts (database), not hardcoded dicts.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass

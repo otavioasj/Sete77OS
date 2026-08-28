@@ -18,8 +18,25 @@ from app.core.analysis import analyze_performance
 from app.core.kpis import summarize_kpis
 from app.core.rules import AccountThresholds, evaluate
 from app.dependencies import get_current_user, get_supabase
+from app.shared.exceptions import NotFoundError
 
 router = APIRouter(tags=["analysis"])
+
+
+def _get_ad_account(supabase: Client, user_id: str, act_id: str) -> dict:
+    """Fetch ad_account or raise 404-style NotFoundError."""
+    rows = (
+        supabase.table("ad_accounts")
+        .select("*")
+        .eq("client_id", user_id)
+        .eq("external_id", act_id)
+        .limit(1)
+        .execute()
+        .data
+    )
+    if not rows:
+        raise NotFoundError(f"Conta {act_id} não encontrada. Conecte sua conta Meta primeiro.")
+    return rows[0]
 
 
 def _get_account_thresholds(acc: dict) -> AccountThresholds:
@@ -67,19 +84,9 @@ async def run_evaluation(
     user: User = Depends(get_current_user),
     supabase: Client = Depends(get_supabase),
 ):
-    # Get account — schema: client_id + external_id
-    acc = (
-        supabase.table("ad_accounts")
-        .select("id")
-        .eq("client_id", user.id)
-        .eq("external_id", body.act_id)
-        .single()
-        .execute()
-        .data
-    )
+    acc = _get_ad_account(supabase, user.id, body.act_id)
     thresholds = _get_account_thresholds(acc)
 
-    # Get campaigns — schema: owner_id, name, meta_campaign_id
     campaigns = (
         supabase.table("campaigns")
         .select("id, name, meta_campaign_id")
@@ -116,19 +123,9 @@ async def run_summary(
     supabase: Client = Depends(get_supabase),
     settings: Settings = Depends(get_settings),
 ):
-    # Get account — schema: client_id + external_id
-    acc = (
-        supabase.table("ad_accounts")
-        .select("id")
-        .eq("client_id", user.id)
-        .eq("external_id", body.act_id)
-        .single()
-        .execute()
-        .data
-    )
+    acc = _get_ad_account(supabase, user.id, body.act_id)
     thresholds = _get_account_thresholds(acc)
 
-    # Get campaigns — schema: owner_id, name
     campaigns = (
         supabase.table("campaigns")
         .select("id, name, meta_campaign_id")
@@ -175,16 +172,7 @@ async def upload_creative(
     user: User = Depends(get_current_user),
     supabase: Client = Depends(get_supabase),
 ):
-    # Schema: client_id + external_id
-    acc = (
-        supabase.table("ad_accounts")
-        .select("id")
-        .eq("client_id", user.id)
-        .eq("external_id", act_id)
-        .single()
-        .execute()
-        .data
-    )
+    acc = _get_ad_account(supabase, user.id, act_id)
 
     content_type = file.content_type or ""
     tipo = "video" if "video" in content_type else "image"
@@ -227,16 +215,7 @@ async def list_creatives(
     # Schema: owner_id (not user_id)
     query = supabase.table("creatives").select("*").eq("owner_id", user.id)
     if act_id:
-        # Schema: client_id + external_id
-        acc = (
-            supabase.table("ad_accounts")
-            .select("id")
-            .eq("client_id", user.id)
-            .eq("external_id", act_id)
-            .single()
-            .execute()
-            .data
-        )
+        acc = _get_ad_account(supabase, user.id, act_id)
         query = query.eq("ad_account_id", acc["id"])
     rows = query.execute().data
     return [

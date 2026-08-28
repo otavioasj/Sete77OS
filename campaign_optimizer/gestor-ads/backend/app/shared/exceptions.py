@@ -37,6 +37,11 @@ class TokenInvalidError(AppError):
         super().__init__("Token inválido ou ausente.")
 
 
+class NotFoundError(AppError):
+    status_code = 404
+    error_code = "NOT_FOUND"
+
+
 class DraftValidationError(AppError):
     status_code = 422
     error_code = "DRAFT_INVALID"

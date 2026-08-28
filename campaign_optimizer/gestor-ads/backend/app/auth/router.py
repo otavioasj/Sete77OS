@@ -17,7 +17,7 @@ from app.dependencies import get_current_user, get_supabase, get_token_manager
 from app.meta.token_manager import TokenManager
 from app.shared.exceptions import AppError
 
-router = APIRouter(prefix="/api/auth", tags=["auth"])
+router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 @router.post("/register", response_model=AuthResponse)
@@ -71,8 +71,11 @@ async def meta_callback(
     supabase: Client = Depends(get_supabase),
     tm: TokenManager = Depends(get_token_manager),
 ):
-    # Validate state JWT
-    user_id = validate_state(state)
+    # Validate state token
+    try:
+        user_id = validate_state(state)
+    except ValueError as exc:
+        raise AppError(str(exc))
 
     # Exchange code for long-lived token
     pair = await tm.exchange_code(code)
@@ -99,7 +102,7 @@ async def meta_callback(
         on_conflict="owner_id,meta_user_id",
     ).execute()
 
-    # List ad accounts
+    # List ad accounts (returned for display; saved to ad_accounts when client is created)
     async with httpx.AsyncClient(timeout=30) as client:
         resp = await client.get(
             "https://graph.facebook.com/v23.0/me/adaccounts",
@@ -110,23 +113,13 @@ async def meta_callback(
         )
         accounts_data = resp.json().get("data", [])
 
-    # Save ad accounts — schema: client_id, external_id, name, currency, timezone
-    saved_accounts = []
-    for acc in accounts_data:
-        account_row = {
-            "client_id": user_id,
-            "external_id": acc["id"],
-            "name": acc.get("name", ""),
-            "currency": acc.get("currency", "BRL"),
-            "timezone": acc.get("timezone_name", "America/Sao_Paulo"),
-            "platform": "meta",
-            "status": "ACTIVE" if acc.get("account_status") == 1 else "INACTIVE",
-        }
-        supabase.table("ad_accounts").upsert(account_row, on_conflict="client_id,external_id").execute()
-        saved_accounts.append({"act_id": acc["id"], "nome": acc.get("name", "")})
+    found_accounts = [
+        {"act_id": acc["id"], "nome": acc.get("name", "")}
+        for acc in accounts_data
+    ]
 
     return MetaCallbackResponse(
         success=True,
-        accounts_found=len(saved_accounts),
-        accounts=saved_accounts,
+        accounts_found=len(found_accounts),
+        accounts=found_accounts,
     )

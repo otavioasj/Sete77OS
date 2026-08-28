@@ -31,11 +31,16 @@ class TokenManager:
     def decrypt(self, encrypted: str) -> str:
         return decrypt_token(encrypted, self._fernet_key)
 
-    async def exchange_code(self, code: str) -> TokenPair:
+    async def exchange_code(self, code: str, redirect_uri: str | None = None) -> TokenPair:
         """Exchange authorization code for a long-lived token.
 
         Flow: code -> short-lived token -> long-lived token (60 days).
         """
+        from app.config import get_settings
+
+        if redirect_uri is None:
+            redirect_uri = get_settings().meta_redirect_uri
+
         async with httpx.AsyncClient(timeout=30) as client:
             # Step 1: code -> short-lived
             resp = await client.get(
@@ -43,6 +48,7 @@ class TokenManager:
                 params={
                     "client_id": self._app_id,
                     "client_secret": self._app_secret,
+                    "redirect_uri": redirect_uri,
                     "code": code,
                 },
             )

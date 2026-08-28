@@ -19,7 +19,7 @@ from app.core.kpis import summarize_kpis
 from app.core.rules import AccountThresholds, evaluate
 from app.dependencies import get_current_user, get_supabase
 
-router = APIRouter(prefix="/api", tags=["analysis"])
+router = APIRouter(tags=["analysis"])
 
 
 def _get_account_thresholds(acc: dict) -> AccountThresholds:

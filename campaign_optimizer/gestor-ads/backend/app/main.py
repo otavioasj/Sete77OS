@@ -46,7 +46,7 @@ async def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
 
 
 # Health check
-@app.get("/api/health")
+@app.get("/health")
 async def health():
     return {"status": "ok", "version": "0.1.0"}
 

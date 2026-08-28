@@ -20,7 +20,7 @@ from app.dependencies import build_meta_client, get_current_user, get_supabase
 from app.meta.client import MetaAdsClient
 from app.shared.exceptions import AppError, CampaignSafetyError, DraftValidationError
 
-router = APIRouter(prefix="/api", tags=["campaigns"])
+router = APIRouter(tags=["campaigns"])
 
 
 # === Accounts ===

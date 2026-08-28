@@ -48,26 +48,21 @@ def get_token_manager(settings: Settings = Depends(get_settings)) -> TokenManage
     )
 
 
-async def get_meta_client(
+async def build_meta_client(
     act_id: str,
-    user: User = Depends(get_current_user),
-    supabase: Client = Depends(get_supabase),
-    tm: TokenManager = Depends(get_token_manager),
+    user: User,
+    supabase: Client,
+    settings: Settings,
 ) -> MetaAdsClient:
-    """Build a MetaAdsClient for the given user and ad account.
+    """Build a MetaAdsClient — callable from DI or directly from router code.
 
     Schema adaptation: ad_accounts uses client_id (not user_id) and
     external_id (not act_id). meta_connections uses owner_id.
     """
-    # Find the ad account — existing schema uses client_id + external_id
-    account = (
-        supabase.table("ad_accounts")
-        .select("id, external_id")
-        .eq("client_id", user.id)
-        .eq("external_id", act_id)
-        .single()
-        .execute()
-        .data
+    tm = TokenManager(
+        fernet_key=settings.fernet_key,
+        meta_app_id=settings.meta_app_id,
+        meta_app_secret=settings.meta_app_secret,
     )
 
     # Find the meta connection for this user
@@ -99,3 +94,13 @@ async def get_meta_client(
         user_id=user.id,
         audit_fn=audit_fn,
     )
+
+
+async def get_meta_client(
+    act_id: str,
+    user: User = Depends(get_current_user),
+    supabase: Client = Depends(get_supabase),
+    settings: Settings = Depends(get_settings),
+) -> MetaAdsClient:
+    """FastAPI DI wrapper around build_meta_client."""
+    return await build_meta_client(act_id, user, supabase, settings)

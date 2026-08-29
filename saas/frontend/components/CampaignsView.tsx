@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import { Pause, Play, RefreshCw } from "lucide-react";
 import { fmt } from "@/lib/formatters";
 import type { Campaign, SyncResult } from "@/lib/types";
@@ -27,6 +28,36 @@ export default function CampaignsView({
   onCampaignAction,
   onGoToDashboard,
 }: Props) {
+  const [campToPause, setCampToPause] = useState<Campaign | null>(null);
+  const lastFocusedRef = useRef<HTMLElement | null>(null);
+  const cancelButtonRef = useRef<HTMLButtonElement | null>(null);
+
+  const requestPause = (camp: Campaign, trigger: HTMLElement) => {
+    lastFocusedRef.current = trigger;
+    setCampToPause(camp);
+  };
+
+  const closeConfirm = () => {
+    setCampToPause(null);
+    lastFocusedRef.current?.focus();
+  };
+
+  const confirmPause = () => {
+    if (campToPause) onCampaignAction(campToPause.id, "pause");
+    closeConfirm();
+  };
+
+  useEffect(() => {
+    if (!campToPause) return;
+    cancelButtonRef.current?.focus();
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeConfirm();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [campToPause]);
+
   return (
     <>
       <div className="topbar">
@@ -177,7 +208,7 @@ export default function CampaignsView({
                       <button
                         className="ghost-button"
                         disabled={actionLoading === camp.id}
-                        onClick={() => onCampaignAction(camp.id, "pause")}
+                        onClick={(e) => requestPause(camp, e.currentTarget)}
                       >
                         <Pause size={14} /> Pausar
                       </button>
@@ -187,6 +218,44 @@ export default function CampaignsView({
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Confirmação — pausar campanha para real gasto/veiculação do cliente */}
+      {campToPause && (
+        <div
+          className="confirm-overlay"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) closeConfirm();
+          }}
+        >
+          <div
+            className="confirm-dialog"
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="pause-confirm-title"
+            aria-describedby="pause-confirm-desc"
+          >
+            <h3 id="pause-confirm-title">Pausar campanha?</h3>
+            <p id="pause-confirm-desc">
+              <strong>{campToPause.name}</strong> para de veicular agora
+              {campToPause.daily_budget
+                ? ` — o orçamento diário de ${fmt.currency(campToPause.daily_budget)} deixa de ser usado.`
+                : "."}
+            </p>
+            <div className="confirm-dialog-actions">
+              <button
+                ref={cancelButtonRef}
+                className="ghost-button"
+                onClick={closeConfirm}
+              >
+                Cancelar
+              </button>
+              <button className="primary-button" onClick={confirmPause}>
+                <Pause size={14} /> Pausar campanha
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </>

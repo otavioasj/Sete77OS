@@ -48,6 +48,8 @@ export default function Sidebar({
         <button
           className="sidebar-toggle"
           onClick={() => setSidebarOpen(!sidebarOpen)}
+          aria-label={sidebarOpen ? "Recolher menu" : "Expandir menu"}
+          aria-expanded={sidebarOpen}
         >
           {sidebarOpen ? <PanelLeftClose size={18} /> : <PanelLeftOpen size={18} />}
         </button>

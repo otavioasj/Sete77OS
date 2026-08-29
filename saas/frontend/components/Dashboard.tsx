@@ -38,20 +38,6 @@ export default function Dashboard({
       <div className="topbar">
         <h1>Dashboard</h1>
         <div className="topbar-actions">
-          {accounts.length > 1 && (
-            <div className="select-field">
-              <select
-                value={selectedAccount}
-                onChange={(e) => setSelectedAccount(e.target.value)}
-              >
-                {accounts.map((a) => (
-                  <option key={a.external_id} value={a.external_id}>
-                    {a.name || a.external_id}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
           <button className="ghost-button" onClick={onRefresh}>
             <RefreshCw size={16} /> Atualizar
           </button>

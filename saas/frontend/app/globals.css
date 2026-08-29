@@ -1390,6 +1390,59 @@ svg {
 }
 
 /* ---------------------------------------------------------------------- */
+/* Account Selector (global)                                              */
+/* ---------------------------------------------------------------------- */
+
+.account-selector {
+  padding: 12px 0 4px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 16px;
+}
+
+.account-selector-inner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.account-select {
+  min-width: 220px;
+  max-width: 360px;
+  position: relative;
+}
+
+.account-select select {
+  padding-right: 28px;
+}
+
+.select-chevron {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  pointer-events: none;
+  color: var(--text-dim);
+}
+
+.account-selector-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.78rem;
+  color: var(--text-dim);
+}
+
+.account-selector-detail {
+  opacity: 0.7;
+}
+
+.insight-pill.small {
+  font-size: 0.68rem;
+  padding: 2px 8px;
+}
+
+/* ---------------------------------------------------------------------- */
 /* Painéis / grid de conteúdo                                             */
 /* ---------------------------------------------------------------------- */
 

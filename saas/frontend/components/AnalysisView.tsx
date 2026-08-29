@@ -2,12 +2,10 @@
 
 import { AlertTriangle, Bot, Sparkles, Target, Zap } from "lucide-react";
 import { fmt } from "@/lib/formatters";
-import type { AdAccount, AISummary, RuleAlert } from "@/lib/types";
+import type { AISummary, RuleAlert } from "@/lib/types";
 
 type Props = {
-  accounts: AdAccount[];
   selectedAccount: string;
-  setSelectedAccount: (v: string) => void;
   currentAccountName: string;
   alerts: RuleAlert[];
   aiSummary: AISummary | null;
@@ -19,9 +17,7 @@ type Props = {
 };
 
 export default function AnalysisView({
-  accounts,
   selectedAccount,
-  setSelectedAccount,
   currentAccountName,
   alerts,
   aiSummary,
@@ -35,22 +31,6 @@ export default function AnalysisView({
     <>
       <div className="topbar">
         <h1>Análise IA</h1>
-        <div className="topbar-actions">
-          {accounts.length > 1 && (
-            <div className="select-field">
-              <select
-                value={selectedAccount}
-                onChange={(e) => setSelectedAccount(e.target.value)}
-              >
-                {accounts.map((a) => (
-                  <option key={a.external_id} value={a.external_id}>
-                    {a.name || a.external_id}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-        </div>
       </div>
 
       {!selectedAccount && (

@@ -13,10 +13,13 @@ import type {
 } from "@/lib/types";
 
 import Sidebar from "./Sidebar";
+import AccountSelector from "./AccountSelector";
 import Dashboard from "./Dashboard";
 import CampaignsView from "./CampaignsView";
 import AnalysisView from "./AnalysisView";
 import AuditView from "./AuditView";
+
+const LS_KEY = "gestor-ads:selected-account";
 
 type Props = {
   userEmail: string;
@@ -54,6 +57,16 @@ export default function AppShell({ userEmail, onLogout }: Props) {
     };
   }, []);
 
+  /* ---- persist selected account ---- */
+  const selectAccount = useCallback((externalId: string) => {
+    setSelectedAccount(externalId);
+    try {
+      localStorage.setItem(LS_KEY, externalId);
+    } catch {
+      /* storage full or blocked */
+    }
+  }, []);
+
   /* ---- load accounts ---- */
   const loadAccounts = useCallback(async () => {
     setLoadingAccounts(true);
@@ -63,7 +76,20 @@ export default function AppShell({ userEmail, onLogout }: Props) {
       setAccounts(data);
       setMetaConnected(data.length > 0);
       if (data.length > 0 && !selectedAccount) {
-        setSelectedAccount(data[0].external_id);
+        let restored = "";
+        try {
+          restored = localStorage.getItem(LS_KEY) || "";
+        } catch {
+          /* blocked */
+        }
+        const match = data.find((a) => a.external_id === restored);
+        const pick = match ? restored : data[0].external_id;
+        setSelectedAccount(pick);
+        try {
+          localStorage.setItem(LS_KEY, pick);
+        } catch {
+          /* silent */
+        }
       }
     } catch {
       /* silent */
@@ -210,6 +236,11 @@ export default function AppShell({ userEmail, onLogout }: Props) {
     setAuditLog([]);
     setSelectedAccount("");
     setMetaConnected(false);
+    try {
+      localStorage.removeItem(LS_KEY);
+    } catch {
+      /* silent */
+    }
     onLogout();
   }, [onLogout]);
 
@@ -231,11 +262,17 @@ export default function AppShell({ userEmail, onLogout }: Props) {
       />
 
       <main className="workspace">
+        <AccountSelector
+          accounts={accounts}
+          selectedAccount={selectedAccount}
+          onSelect={selectAccount}
+        />
+
         {section === "dashboard" && (
           <Dashboard
             accounts={accounts}
             selectedAccount={selectedAccount}
-            setSelectedAccount={setSelectedAccount}
+            setSelectedAccount={selectAccount}
             campaigns={campaigns}
             metaConnected={metaConnected}
             loadingAccounts={loadingAccounts}
@@ -250,9 +287,7 @@ export default function AppShell({ userEmail, onLogout }: Props) {
 
         {section === "campaigns" && (
           <CampaignsView
-            accounts={accounts}
             selectedAccount={selectedAccount}
-            setSelectedAccount={setSelectedAccount}
             campaigns={campaigns}
             loadingCampaigns={loadingCampaigns}
             syncing={syncing}
@@ -266,9 +301,7 @@ export default function AppShell({ userEmail, onLogout }: Props) {
 
         {section === "analysis" && (
           <AnalysisView
-            accounts={accounts}
             selectedAccount={selectedAccount}
-            setSelectedAccount={setSelectedAccount}
             currentAccountName={currentAccountName}
             alerts={alerts}
             aiSummary={aiSummary}

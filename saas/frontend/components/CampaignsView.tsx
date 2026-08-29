@@ -2,12 +2,10 @@
 
 import { Pause, Play, RefreshCw } from "lucide-react";
 import { fmt } from "@/lib/formatters";
-import type { AdAccount, Campaign, SyncResult } from "@/lib/types";
+import type { Campaign, SyncResult } from "@/lib/types";
 
 type Props = {
-  accounts: AdAccount[];
   selectedAccount: string;
-  setSelectedAccount: (v: string) => void;
   campaigns: Campaign[];
   loadingCampaigns: boolean;
   syncing: boolean;
@@ -19,9 +17,7 @@ type Props = {
 };
 
 export default function CampaignsView({
-  accounts,
   selectedAccount,
-  setSelectedAccount,
   campaigns,
   loadingCampaigns,
   syncing,
@@ -36,20 +32,6 @@ export default function CampaignsView({
       <div className="topbar">
         <h1>Campanhas</h1>
         <div className="topbar-actions">
-          {accounts.length > 1 && (
-            <div className="select-field">
-              <select
-                value={selectedAccount}
-                onChange={(e) => setSelectedAccount(e.target.value)}
-              >
-                {accounts.map((a) => (
-                  <option key={a.external_id} value={a.external_id}>
-                    {a.name || a.external_id}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
           <button
             className="ghost-button"
             onClick={onSync}

@@ -1,8 +1,10 @@
 "use client";
 
-import { AlertTriangle, Bot, Sparkles, Target, Zap } from "lucide-react";
+import { AlertTriangle, Bot, Download, Sparkles, Target, Zap } from "lucide-react";
 import { fmt } from "@/lib/formatters";
-import type { AISummary, RuleAlert } from "@/lib/types";
+import { generateAnalysisPdf } from "@/lib/generatePdf";
+import AnalysisHistoryPanel from "./AnalysisHistoryPanel";
+import type { AISummary, AnalysisHistoryEntry, RuleAlert } from "@/lib/types";
 
 type Props = {
   selectedAccount: string;
@@ -11,6 +13,8 @@ type Props = {
   aiSummary: AISummary | null;
   evaluating: boolean;
   summarizing: boolean;
+  analysisHistory: AnalysisHistoryEntry[];
+  loadingHistory: boolean;
   onEvaluate: () => void;
   onSummary: () => void;
   onGoToDashboard: () => void;
@@ -23,6 +27,8 @@ export default function AnalysisView({
   aiSummary,
   evaluating,
   summarizing,
+  analysisHistory,
+  loadingHistory,
   onEvaluate,
   onSummary,
   onGoToDashboard,
@@ -75,6 +81,16 @@ export default function AnalysisView({
                 <Bot size={16} />{" "}
                 {summarizing ? "Gerando..." : "Resumo IA"}
               </button>
+              {aiSummary && (
+                <button
+                  className="secondary-button"
+                  onClick={() =>
+                    generateAnalysisPdf(aiSummary, currentAccountName)
+                  }
+                >
+                  <Download size={16} /> Exportar PDF
+                </button>
+              )}
             </div>
           </div>
 
@@ -240,7 +256,7 @@ export default function AnalysisView({
                                 color: "var(--flame-2)",
                               }}
                             />
-                            {acao}
+                            {acao.action}
                           </p>
                         </div>
                       ))}
@@ -264,6 +280,12 @@ export default function AnalysisView({
               </div>
             </div>
           )}
+
+          <AnalysisHistoryPanel
+            entries={analysisHistory}
+            loading={loadingHistory}
+            accountName={currentAccountName}
+          />
         </>
       )}
     </>

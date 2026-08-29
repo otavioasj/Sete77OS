@@ -47,11 +47,26 @@ export type SummaryKpis = {
   pior_campanha: string;
 };
 
+export type SuggestedAction = {
+  entity_id: string | null;
+  action: string;
+};
+
 export type AISummary = {
   resumo: string;
   recomendacoes: string[];
-  acoes: string[];
+  acoes: SuggestedAction[];
   kpis: SummaryKpis;
+};
+
+export type AnalysisHistoryEntry = {
+  id: string;
+  nivel_tecnico: string;
+  resumo: string;
+  recomendacoes: string[];
+  acoes: SuggestedAction[];
+  kpis: SummaryKpis;
+  criado_em: string;
 };
 
 export type AuditEntry = {
@@ -68,4 +83,31 @@ export type SyncResult = {
   errors: { campaign: string; error: string }[];
 };
 
-export type NavSection = "dashboard" | "campaigns" | "analysis" | "audit";
+export type AutomationSettings = {
+  auto_pause_enabled: boolean;
+  server_schedule_enabled: boolean;
+  notify_email: boolean;
+  notify_whatsapp: boolean;
+};
+
+export type AutomationRunResult = {
+  alerts_found: number;
+  paused_count: number;
+  errors: string[];
+};
+
+export type NotificationEntry = {
+  id: string;
+  title: string;
+  body: string;
+  severity: "info" | "warning" | "critical";
+  lida: boolean;
+  criado_em: string;
+};
+
+export type NavSection =
+  | "dashboard"
+  | "campaigns"
+  | "analysis"
+  | "automation"
+  | "audit";

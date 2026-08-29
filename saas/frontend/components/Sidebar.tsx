@@ -6,6 +6,7 @@ import {
   Megaphone,
   PanelLeftClose,
   PanelLeftOpen,
+  ShieldAlert,
   ShieldCheck,
   Sparkles,
 } from "lucide-react";
@@ -24,6 +25,7 @@ const navItems: { key: NavSection; icon: React.ReactNode; label: string }[] = [
   { key: "dashboard", icon: <LayoutDashboard size={20} />, label: "Dashboard" },
   { key: "campaigns", icon: <Megaphone size={20} />, label: "Campanhas" },
   { key: "analysis", icon: <Sparkles size={20} />, label: "Análise IA" },
+  { key: "automation", icon: <ShieldAlert size={20} />, label: "Automação" },
   { key: "audit", icon: <ClipboardList size={20} />, label: "Auditoria" },
 ];
 

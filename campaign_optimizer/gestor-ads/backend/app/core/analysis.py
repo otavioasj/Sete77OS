@@ -160,6 +160,7 @@ async def generate_campaign_strategy(
     account_history: list[dict] | None = None,
     nivel_tecnico: str = "avancado",
     anthropic_api_key: str = "",
+    anthropic_workspace_id: str = "",
     model: str = "claude-sonnet-5",
 ) -> CampaignStrategy:
     """Generate a complete campaign strategy with justification."""
@@ -190,7 +191,12 @@ async def generate_campaign_strategy(
             max_tokens=1024,
             messages=[{"role": "user", "content": prompt}],
         )
-        text = response.content[0].text
+        # Extract text block (skip ThinkingBlock if extended thinking is on)
+        text = ""
+        for block in response.content:
+            if hasattr(block, "text"):
+                text = block.text
+                break
 
         # Parse JSON from response (may be wrapped in markdown)
         json_str = text

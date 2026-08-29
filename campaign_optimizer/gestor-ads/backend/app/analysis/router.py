@@ -142,6 +142,7 @@ async def run_summary(
         thresholds=thresholds,
         nivel_tecnico=body.nivel_tecnico,
         anthropic_api_key=settings.anthropic_api_key,
+        anthropic_workspace_id=settings.anthropic_workspace_id,
     )
 
     kpis = summarize_kpis(metrics)

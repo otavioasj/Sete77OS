@@ -22,6 +22,7 @@ class Settings(BaseSettings):
 
     # LLM
     anthropic_api_key: str = ""
+    anthropic_workspace_id: str = ""
 
     # App
     environment: str = "development"

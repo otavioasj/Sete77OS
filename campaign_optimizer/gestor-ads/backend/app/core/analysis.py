@@ -85,6 +85,7 @@ async def analyze_performance(
     thresholds: AccountThresholds,
     nivel_tecnico: str = "avancado",
     anthropic_api_key: str = "",
+    anthropic_workspace_id: str = "",
     model: str = "claude-sonnet-5",
 ) -> AnalysisResult:
     """Run rules + KPIs, then send to Claude for analysis.
@@ -122,22 +123,30 @@ async def analyze_performance(
     )
 
     try:
-        client = anthropic.AsyncAnthropic(api_key=anthropic_api_key)
+        headers = {}
+        if anthropic_workspace_id:
+            headers["anthropic-workspace-id"] = anthropic_workspace_id
+        client = anthropic.AsyncAnthropic(api_key=anthropic_api_key, default_headers=headers)
         response = await client.messages.create(
             model=model,
             max_tokens=1024,
             messages=[{"role": "user", "content": prompt}],
         )
-        text = response.content[0].text
+        # Extract text block (skip ThinkingBlock if extended thinking is on)
+        text = ""
+        for block in response.content:
+            if hasattr(block, "text"):
+                text = block.text
+                break
 
         return AnalysisResult(
-            resumo=text,
+            resumo=text or "Análise indisponível.",
             recomendacoes=[a.reason for a in alerts[:5]],
             acoes=[{"entity_id": a.meta_entity_id, "action": a.action} for a in alerts if a.meta_entity_id],
         )
 
     except Exception as exc:
-        logger.warning("Claude analysis failed, using fallback: %s", exc)
+        logger.error("Claude analysis failed, using fallback: %s", exc, exc_info=True)
         fb = fallback_analysis(metrics, alerts_dicts)
         return AnalysisResult(
             resumo=fb,
@@ -172,7 +181,10 @@ async def generate_campaign_strategy(
         prompt += f"\n\nHistórico da conta: {json.dumps(account_history[:10], ensure_ascii=False)}"
 
     try:
-        client = anthropic.AsyncAnthropic(api_key=anthropic_api_key)
+        headers = {}
+        if anthropic_workspace_id:
+            headers["anthropic-workspace-id"] = anthropic_workspace_id
+        client = anthropic.AsyncAnthropic(api_key=anthropic_api_key, default_headers=headers)
         response = await client.messages.create(
             model=model,
             max_tokens=1024,

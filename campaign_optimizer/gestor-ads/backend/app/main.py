@@ -11,6 +11,7 @@ from app.auth.router import router as auth_router
 from app.automation.router import router as automation_router
 from app.campaigns.router import router as campaigns_router
 from app.config import get_settings
+from app.events.router import router as events_router
 from app.shared.exceptions import AppError
 
 settings = get_settings()
@@ -57,3 +58,4 @@ app.include_router(auth_router)
 app.include_router(campaigns_router)
 app.include_router(analysis_router)
 app.include_router(automation_router)
+app.include_router(events_router)

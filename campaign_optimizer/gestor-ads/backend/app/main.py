@@ -8,6 +8,7 @@ from fastapi.responses import JSONResponse
 
 from app.analysis.router import router as analysis_router
 from app.auth.router import router as auth_router
+from app.automation.router import router as automation_router
 from app.campaigns.router import router as campaigns_router
 from app.config import get_settings
 from app.shared.exceptions import AppError
@@ -55,3 +56,4 @@ async def health():
 app.include_router(auth_router)
 app.include_router(campaigns_router)
 app.include_router(analysis_router)
+app.include_router(automation_router)

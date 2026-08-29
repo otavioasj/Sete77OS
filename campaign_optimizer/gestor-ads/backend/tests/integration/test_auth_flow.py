@@ -34,16 +34,23 @@ def test_validate_state_round_trip():
         assert user_id == "user-uuid-123"
 
 
-def test_validate_state_rejects_wrong_secret():
+def test_validate_state_rejects_unknown_state():
+    # State is now an opaque token in a server-side store (not a signed JWT),
+    # so a value that was never issued by generate_oauth_url must be rejected.
+    with pytest.raises(ValueError):
+        validate_state("some-token-nobody-issued")
+
+
+def test_validate_state_rejects_reuse():
     with patch("app.auth.meta_oauth.get_settings") as mock_settings:
         mock_settings.return_value = MagicMock(
             meta_app_id="12345",
             meta_redirect_uri="https://example.com/callback",
-            jwt_secret="original-secret",
+            jwt_secret="test-secret-key-for-testing",
         )
         url = generate_oauth_url("user-uuid-123")
         state = url.split("state=")[1].split("&")[0]
 
-        mock_settings.return_value = MagicMock(jwt_secret="different-secret")
-        with pytest.raises(Exception):
+        assert validate_state(state) == "user-uuid-123"
+        with pytest.raises(ValueError):
             validate_state(state)

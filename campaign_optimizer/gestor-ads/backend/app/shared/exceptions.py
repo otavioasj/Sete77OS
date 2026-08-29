@@ -53,3 +53,11 @@ class CampaignSafetyError(AppError):
 
     def __init__(self):
         super().__init__("Ação bloqueada por regra de segurança.")
+
+
+class AutomationKeyInvalidError(AppError):
+    status_code = 401
+    error_code = "AUTOMATION_KEY_INVALID"
+
+    def __init__(self):
+        super().__init__("Chave de automação inválida ou ausente.")

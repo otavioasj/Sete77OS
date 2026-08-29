@@ -195,7 +195,8 @@ async def sync_campaigns(
                     spend = float(row.get("spend", 0) or 0)
                     metric_date = row.get("date_start", datetime.now(timezone.utc).date().isoformat())
 
-                    # Schema: unique(client_id, platform, metric_date, campaign_external_id, ad_group_external_id, ad_external_id)
+                    # Schema: unique(client_id, platform, metric_date,
+                    # campaign_external_id, ad_group_external_id, ad_external_id)
                     supabase.table("campaign_daily_metrics").upsert(
                         {
                             "client_id": user.id,

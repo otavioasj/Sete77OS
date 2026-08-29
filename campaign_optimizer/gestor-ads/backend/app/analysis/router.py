@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter, Depends, File, Query, UploadFile
 from supabase import Client
 
 from app.analysis.schemas import (
+    AnalysisHistoryOut,
     AuditLogOut,
     CreativeOut,
     EvaluateRequest,
@@ -14,68 +17,15 @@ from app.analysis.schemas import (
 )
 from app.auth.models import User
 from app.config import Settings, get_settings
+from app.core.account_data import build_metrics, get_account_campaigns, get_account_thresholds, get_ad_account
 from app.core.analysis import analyze_performance
 from app.core.kpis import summarize_kpis
-from app.core.rules import AccountThresholds, evaluate
+from app.core.rules import evaluate
 from app.dependencies import get_current_user, get_supabase
-from app.shared.exceptions import NotFoundError
+from app.shared.dates import date_preset_to_start_date
 
 router = APIRouter(tags=["analysis"])
-
-
-def _get_ad_account(supabase: Client, user_id: str, act_id: str) -> dict:
-    """Fetch ad_account or raise 404-style NotFoundError."""
-    rows = (
-        supabase.table("ad_accounts")
-        .select("*")
-        .eq("client_id", user_id)
-        .eq("external_id", act_id)
-        .limit(1)
-        .execute()
-        .data
-    )
-    if not rows:
-        raise NotFoundError(f"Conta {act_id} não encontrada. Conecte sua conta Meta primeiro.")
-    return rows[0]
-
-
-def _get_account_thresholds(acc: dict) -> AccountThresholds:
-    """Build thresholds from ad_account row.
-
-    Schema note: ad_accounts may NOT have threshold columns (target_cpl, etc.).
-    Falls back to AccountThresholds defaults when columns are absent.
-    """
-    return AccountThresholds(
-        target_cpl=float(acc.get("target_cpl") or 0),
-        waste_limit=float(acc.get("waste_limit") or 100),
-        min_ctr=float(acc.get("min_ctr") or 0.8),
-        max_frequency=float(acc.get("max_frequency") or 3.0),
-    )
-
-
-def _build_metrics(campaigns: list[dict], supabase: Client, user_id: str) -> list[dict]:
-    """Fetch campaign_daily_metrics and enrich with campaign name + meta_entity_id.
-
-    Schema adaptation: campaigns uses `name` (not `nome`),
-    campaign_daily_metrics uses `owner_id` (not `user_id`).
-    """
-    metrics: list[dict] = []
-    for camp in campaigns:
-        rows = (
-            supabase.table("campaign_daily_metrics")
-            .select("*")
-            .eq("campaign_id", camp["id"])
-            .eq("owner_id", user_id)
-            .execute()
-            .data
-        )
-        for r in rows:
-            r["campaign"] = camp.get("name", "Campanha sem nome")
-            r["meta_entity_id"] = camp.get("meta_campaign_id")
-            r["entity_level"] = "campaign"
-            r["entity_name"] = camp.get("name", "Campanha sem nome")
-        metrics.extend(rows)
-    return metrics
+logger = logging.getLogger(__name__)
 
 
 @router.post("/analysis/evaluate", response_model=EvaluateResponse)
@@ -84,19 +34,13 @@ async def run_evaluation(
     user: User = Depends(get_current_user),
     supabase: Client = Depends(get_supabase),
 ):
-    acc = _get_ad_account(supabase, user.id, body.act_id)
-    thresholds = _get_account_thresholds(acc)
+    acc = get_ad_account(supabase, user.id, body.act_id)
+    thresholds = get_account_thresholds(acc)
 
-    campaigns = (
-        supabase.table("campaigns")
-        .select("id, name, meta_campaign_id")
-        .eq("ad_account_id", acc["id"])
-        .eq("owner_id", user.id)
-        .execute()
-        .data
-    )
+    campaigns = get_account_campaigns(supabase, user.id, acc["id"])
 
-    metrics = _build_metrics(campaigns, supabase, user.id)
+    since = date_preset_to_start_date(body.date_preset)
+    metrics = build_metrics(campaigns, supabase, user.id, since=since)
     alerts = evaluate(metrics, thresholds)
 
     return EvaluateResponse(
@@ -123,19 +67,13 @@ async def run_summary(
     supabase: Client = Depends(get_supabase),
     settings: Settings = Depends(get_settings),
 ):
-    acc = _get_ad_account(supabase, user.id, body.act_id)
-    thresholds = _get_account_thresholds(acc)
+    acc = get_ad_account(supabase, user.id, body.act_id)
+    thresholds = get_account_thresholds(acc)
 
-    campaigns = (
-        supabase.table("campaigns")
-        .select("id, name, meta_campaign_id")
-        .eq("ad_account_id", acc["id"])
-        .eq("owner_id", user.id)
-        .execute()
-        .data
-    )
+    campaigns = get_account_campaigns(supabase, user.id, acc["id"])
 
-    metrics = _build_metrics(campaigns, supabase, user.id)
+    since = date_preset_to_start_date(body.date_preset)
+    metrics = build_metrics(campaigns, supabase, user.id, since=since)
 
     result = await analyze_performance(
         metrics=metrics,
@@ -146,21 +84,60 @@ async def run_summary(
     )
 
     kpis = summarize_kpis(metrics)
+    kpis_dict = {
+        "total_spend": kpis.total_spend,
+        "total_leads": kpis.total_leads,
+        "cpl_medio": kpis.cpl_medio,
+        "ctr_medio": kpis.ctr_medio,
+        "tendencia": kpis.tendencia,
+        "melhor_campanha": kpis.melhor_campanha,
+        "pior_campanha": kpis.pior_campanha,
+    }
+
+    # Best-effort: save to history. Never block the response on this.
+    try:
+        supabase.table("analysis_history").insert(
+            {
+                "owner_id": user.id,
+                "ad_account_id": acc["id"],
+                "nivel_tecnico": body.nivel_tecnico,
+                "resumo": result.resumo,
+                "recomendacoes": result.recomendacoes,
+                "acoes": result.acoes,
+                "kpis": kpis_dict,
+            }
+        ).execute()
+    except Exception as exc:
+        logger.error("Failed to save analysis_history: %s", exc, exc_info=True)
 
     return SummaryResponse(
         resumo=result.resumo,
         recomendacoes=result.recomendacoes,
         acoes=result.acoes,
-        kpis={
-            "total_spend": kpis.total_spend,
-            "total_leads": kpis.total_leads,
-            "cpl_medio": kpis.cpl_medio,
-            "ctr_medio": kpis.ctr_medio,
-            "tendencia": kpis.tendencia,
-            "melhor_campanha": kpis.melhor_campanha,
-            "pior_campanha": kpis.pior_campanha,
-        },
+        kpis=kpis_dict,
     )
+
+
+@router.get("/analysis/history", response_model=list[AnalysisHistoryOut])
+async def list_analysis_history(
+    act_id: str,
+    limit: int = Query(default=20, le=100),
+    user: User = Depends(get_current_user),
+    supabase: Client = Depends(get_supabase),
+):
+    acc = get_ad_account(supabase, user.id, act_id)
+
+    rows = (
+        supabase.table("analysis_history")
+        .select("id, nivel_tecnico, resumo, recomendacoes, acoes, kpis, criado_em")
+        .eq("owner_id", user.id)
+        .eq("ad_account_id", acc["id"])
+        .order("criado_em", desc=True)
+        .limit(limit)
+        .execute()
+        .data
+    )
+    return rows
 
 
 # === Creatives ===
@@ -173,7 +150,7 @@ async def upload_creative(
     user: User = Depends(get_current_user),
     supabase: Client = Depends(get_supabase),
 ):
-    acc = _get_ad_account(supabase, user.id, act_id)
+    acc = get_ad_account(supabase, user.id, act_id)
 
     content_type = file.content_type or ""
     tipo = "video" if "video" in content_type else "image"
@@ -216,7 +193,7 @@ async def list_creatives(
     # Schema: owner_id (not user_id)
     query = supabase.table("creatives").select("*").eq("owner_id", user.id)
     if act_id:
-        acc = _get_ad_account(supabase, user.id, act_id)
+        acc = get_ad_account(supabase, user.id, act_id)
         query = query.eq("ad_account_id", acc["id"])
     rows = query.execute().data
     return [

@@ -24,6 +24,18 @@ class Settings(BaseSettings):
     anthropic_api_key: str = ""
     anthropic_workspace_id: str = ""
 
+    # Email (SMTP) — used for automation notifications. Left blank, sending
+    # is skipped silently (logged) until configured.
+    smtp_host: str = "smtp.gmail.com"
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: str = ""
+    smtp_from_name: str = "Creative Ads"
+
+    # Automation — shared secret for the cron-triggered /automation/run-all
+    # endpoint (no user JWT available from a server-side scheduler).
+    automation_cron_secret: str = ""
+
     # App
     environment: str = "development"
     log_level: str = "info"

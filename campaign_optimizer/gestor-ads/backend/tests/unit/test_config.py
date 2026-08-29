@@ -4,7 +4,10 @@ from __future__ import annotations
 def test_settings_loads_defaults():
     from app.config import Settings
 
+    # Disable .env loading so a local `ENVIRONMENT=production` in the repo's
+    # .env file can't leak into this test's expectations.
     settings = Settings(
+        _env_file=None,
         fernet_key="test-key",
         jwt_secret="test-secret",
     )

@@ -50,3 +50,13 @@ class AuditLogOut(BaseModel):
     entidade: str
     entidade_id: str | None
     criado_em: str
+
+
+class AnalysisHistoryOut(BaseModel):
+    id: str
+    nivel_tecnico: str
+    resumo: str
+    recomendacoes: list[str]
+    acoes: list[dict]
+    kpis: dict
+    criado_em: str

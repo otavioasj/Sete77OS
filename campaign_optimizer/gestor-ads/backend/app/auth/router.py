@@ -1,14 +1,16 @@
 from __future__ import annotations
 
+import logging
+
 import httpx
 from fastapi import APIRouter, Depends, Query
+from fastapi.responses import RedirectResponse
 from supabase import Client
 
 from app.auth.meta_oauth import generate_oauth_url, validate_state
 from app.auth.models import (
     AuthResponse,
     LoginRequest,
-    MetaCallbackResponse,
     MetaOAuthURL,
     RegisterRequest,
     User,
@@ -16,6 +18,8 @@ from app.auth.models import (
 from app.dependencies import get_current_user, get_supabase, get_token_manager
 from app.meta.token_manager import TokenManager
 from app.shared.exceptions import AppError
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -64,7 +68,7 @@ async def meta_login(user: User = Depends(get_current_user)):
     return MetaOAuthURL(url=url)
 
 
-@router.get("/meta/callback", response_model=MetaCallbackResponse)
+@router.get("/meta/callback")
 async def meta_callback(
     code: str = Query(...),
     state: str = Query(...),
@@ -102,7 +106,7 @@ async def meta_callback(
         on_conflict="owner_id,meta_user_id",
     ).execute()
 
-    # List ad accounts (returned for display; saved to ad_accounts when client is created)
+    # List ad accounts from Facebook
     async with httpx.AsyncClient(timeout=30) as client:
         resp = await client.get(
             "https://graph.facebook.com/v23.0/me/adaccounts",
@@ -113,13 +117,25 @@ async def meta_callback(
         )
         accounts_data = resp.json().get("data", [])
 
-    found_accounts = [
-        {"act_id": acc["id"], "nome": acc.get("name", "")}
-        for acc in accounts_data
-    ]
+    # Upsert each ad account into ad_accounts table
+    for acc in accounts_data:
+        try:
+            supabase.table("ad_accounts").upsert(
+                {
+                    "client_id": user_id,
+                    "external_id": acc["id"],
+                    "name": acc.get("name", ""),
+                    "currency": acc.get("currency", "BRL"),
+                    "timezone": acc.get("timezone_name", "America/Sao_Paulo"),
+                    "status": "active",
+                    "platform": "meta_ads",
+                },
+                on_conflict="client_id,platform,external_id",
+            ).execute()
+        except Exception as exc:
+            logger.warning("Erro ao salvar ad account %s: %s", acc["id"], exc)
 
-    return MetaCallbackResponse(
-        success=True,
-        accounts_found=len(found_accounts),
-        accounts=found_accounts,
-    )
+    logger.info("Meta callback: %d ad accounts salvas para user %s", len(accounts_data), user_id)
+
+    # Redirect user back to frontend dashboard
+    return RedirectResponse(url="https://ads.creativeagenciamkt.com.br/", status_code=302)

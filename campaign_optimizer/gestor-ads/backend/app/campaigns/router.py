@@ -68,7 +68,7 @@ async def list_campaigns(
     user: User = Depends(get_current_user),
     supabase: Client = Depends(get_supabase),
 ):
-    query = supabase.table("campaigns").select("*").eq("owner_id", user.id)
+    query = supabase.table("campaigns").select("*").eq("client_id", user.id)
     if act_id:
         acc = (
             supabase.table("ad_accounts")
@@ -145,35 +145,42 @@ async def sync_campaigns(
 
         for camp in campaigns:
             try:
-                # Upsert campaign — real schema columns
+                meta_camp_id = camp["id"]
+                eff_status = camp.get("effective_status", camp.get("status", "UNKNOWN"))
+
+                # Upsert campaign — schema: unique(client_id, platform, external_id)
                 supabase.table("campaigns").upsert(
                     {
-                        "ad_account_id": account_db_id,
+                        "client_id": user.id,
                         "owner_id": user.id,
-                        "meta_campaign_id": camp["id"],
+                        "ad_account_id": account_db_id,
+                        "platform": "meta_ads",
+                        "external_id": meta_camp_id,
+                        "meta_campaign_id": meta_camp_id,
                         "name": camp.get("name", ""),
                         "objective": camp.get("objective", ""),
-                        "status": camp.get("effective_status", camp.get("status", "UNKNOWN")),
+                        "status": eff_status,
+                        "effective_status": eff_status,
                         "daily_budget": float(camp.get("daily_budget", 0) or 0) / 100,
                         "lifetime_budget": float(camp.get("lifetime_budget", 0) or 0) / 100,
-                        "platform": "meta",
                     },
-                    on_conflict="ad_account_id,meta_campaign_id",
+                    on_conflict="client_id,platform,external_id",
                 ).execute()
 
                 # Get local campaign ID
                 local = (
                     supabase.table("campaigns")
                     .select("id")
-                    .eq("ad_account_id", account_db_id)
-                    .eq("meta_campaign_id", camp["id"])
+                    .eq("client_id", user.id)
+                    .eq("platform", "meta_ads")
+                    .eq("external_id", meta_camp_id)
                     .single()
                     .execute()
                     .data
                 )
 
                 # Fetch insights
-                insights = await meta.get_insights(camp["id"], date_preset=body.date_preset)
+                insights = await meta.get_insights(meta_camp_id, date_preset=body.date_preset)
                 for row in insights:
                     leads = int(
                         MetaAdsClient._extract_metric(
@@ -186,15 +193,26 @@ async def sync_campaigns(
                         ("messaging_conversation_started", "lead", "contact", "omni_lead"),
                     )
                     spend = float(row.get("spend", 0) or 0)
+                    metric_date = row.get("date_start", datetime.now(timezone.utc).date().isoformat())
 
+                    # Schema: unique(client_id, platform, metric_date, campaign_external_id, ad_group_external_id, ad_external_id)
                     supabase.table("campaign_daily_metrics").upsert(
                         {
-                            "campaign_id": local["id"],
+                            "client_id": user.id,
                             "owner_id": user.id,
-                            "metric_date": row.get("date_start", datetime.now(timezone.utc).date().isoformat()),
+                            "campaign_id": local["id"],
+                            "platform": "meta_ads",
+                            "metric_date": metric_date,
+                            "campaign_external_id": meta_camp_id,
+                            "campaign_name": camp.get("name", ""),
+                            "ad_group_external_id": "",
+                            "ad_group_name": "",
+                            "ad_external_id": "",
+                            "ad_name": "",
                             "impressions": int(float(row.get("impressions", 0) or 0)),
                             "reach": int(float(row.get("reach", 0) or 0)),
                             "clicks": int(float(row.get("clicks", 0) or 0)),
+                            "conversions": 0,
                             "ctr": round(float(row.get("ctr", 0) or 0), 4),
                             "cpc": round(float(row.get("cpc", 0) or 0), 4),
                             "cpm": round(float(row.get("cpm", 0) or 0), 4),
@@ -202,9 +220,10 @@ async def sync_campaigns(
                             "spend": round(spend, 2),
                             "leads": leads,
                             "cpl": round(cpl or (spend / leads if leads else 0), 2),
+                            "source": "meta_api",
                             "raw_payload": row,
                         },
-                        on_conflict="campaign_id,metric_date",
+                        on_conflict="client_id,platform,metric_date,campaign_external_id,ad_group_external_id,ad_external_id",
                     ).execute()
                     metrics_count += 1
 

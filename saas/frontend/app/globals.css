@@ -117,6 +117,21 @@ svg {
   outline-offset: 2px;
 }
 
+/* Respeita a preferência do sistema por menos movimento — desliga hover
+   lift, parallax do hero-panel e as demais transitions/animations do
+   arquivo sem quebrar JS que dependa de transitionend (duração ~0 em vez
+   de "none"). */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 /* ---------------------------------------------------------------------- */
 /* Tela de acesso                                                         */
 /* ---------------------------------------------------------------------- */
@@ -3753,4 +3768,72 @@ svg {
 
 .notification-item.warning strong {
   color: #7a4a06;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Confirmação de ação destrutiva (ex.: pausar campanha)                  */
+/* ---------------------------------------------------------------------- */
+
+.confirm-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(10, 9, 8, 0.55);
+  animation: confirm-overlay-in 180ms ease;
+}
+
+.confirm-dialog {
+  width: min(420px, 100%);
+  padding: 28px;
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-ink);
+  display: grid;
+  gap: 14px;
+  animation: confirm-dialog-in 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.confirm-dialog h3 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 400; /* corte unico da Archivo Black, ja e o desenho peso 900 */
+  font-size: 1.3rem;
+  letter-spacing: -0.01em;
+}
+
+.confirm-dialog p {
+  margin: 0;
+  color: var(--text-dim);
+  line-height: 1.55;
+}
+
+.confirm-dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+@keyframes confirm-overlay-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes confirm-dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }

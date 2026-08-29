@@ -5,6 +5,7 @@
 
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { track } from "./track";
 import type { AISummary } from "./types";
 
 const COLORS = {
@@ -222,4 +223,6 @@ export function generateAnalysisPdf(
   /* ---- Save ---- */
   const fileName = `relatorio-${accountName.replace(/[^a-zA-Z0-9]/g, "_")}-${new Date().toISOString().slice(0, 10)}.pdf`;
   doc.save(fileName);
+
+  track("pdf_export", { accountName });
 }

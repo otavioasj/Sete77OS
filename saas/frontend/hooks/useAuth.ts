@@ -2,6 +2,7 @@
 
 import { useCallback, useState, useEffect } from "react";
 import { apiFetch, clearAuth, getToken, getUserEmail, saveAuth } from "@/lib/api";
+import { track } from "@/lib/track";
 import type { AuthData } from "@/lib/types";
 
 export function useAuth() {
@@ -40,6 +41,7 @@ export function useAuth() {
       });
       saveAuth(data);
       setAuthed(true);
+      track("login", { mode: authMode });
     } catch (err) {
       setAuthError(err instanceof Error ? err.message : "Erro ao autenticar");
     } finally {

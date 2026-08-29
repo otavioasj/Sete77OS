@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { apiFetch } from "@/lib/api";
+import { track } from "@/lib/track";
 import type {
   AdAccount,
   AISummary,
@@ -77,12 +78,18 @@ export default function AppShell({ userEmail, onLogout }: Props) {
   /* ---- persist selected account ---- */
   const selectAccount = useCallback((externalId: string) => {
     setSelectedAccount(externalId);
+    track("account_switch", { act_id: externalId });
     try {
       localStorage.setItem(LS_KEY, externalId);
     } catch {
       /* storage full or blocked */
     }
   }, []);
+
+  /* ---- qual seção está sendo usada de verdade ---- */
+  useEffect(() => {
+    track("section_view", { section });
+  }, [section]);
 
   /* ---- persist selected period ---- */
   const selectPeriod = useCallback((preset: string) => {
@@ -183,6 +190,11 @@ export default function AppShell({ userEmail, onLogout }: Props) {
         }),
       });
       setSyncResult(data);
+      track("campaign_sync", {
+        act_id: selectedAccount,
+        date_preset: selectedPeriod,
+        campaigns_synced: data.campaigns_synced,
+      });
       await loadCampaigns();
     } catch (err) {
       alert(err instanceof Error ? err.message : "Erro ao sincronizar");
@@ -208,6 +220,12 @@ export default function AppShell({ userEmail, onLogout }: Props) {
         }
       );
       setAlerts(data.alerts);
+      track("analysis_run", {
+        kind: "evaluate",
+        act_id: selectedAccount,
+        date_preset: selectedPeriod,
+        alerts_total: data.total,
+      });
     } catch (err) {
       alert(err instanceof Error ? err.message : "Erro na avaliação");
     } finally {
@@ -250,6 +268,11 @@ export default function AppShell({ userEmail, onLogout }: Props) {
         }),
       });
       setAiSummary(data);
+      track("analysis_run", {
+        kind: "summary",
+        act_id: selectedAccount,
+        date_preset: selectedPeriod,
+      });
       loadAnalysisHistory();
     } catch (err) {
       alert(err instanceof Error ? err.message : "Erro no resumo IA");
@@ -336,6 +359,7 @@ export default function AppShell({ userEmail, onLogout }: Props) {
           }),
         });
         if (mountedRef.current) setAutomationSettings(data);
+        track("automation_toggle", { act_id: selectedAccount, patch });
       } catch (err) {
         alert(err instanceof Error ? err.message : "Erro ao salvar configuração");
         loadAutomationSettings();
@@ -353,6 +377,11 @@ export default function AppShell({ userEmail, onLogout }: Props) {
         body: JSON.stringify({ act_id: selectedAccount, date_preset: selectedPeriod }),
       });
       setLastAutomationRun(data);
+      track("automation_manual_run", {
+        act_id: selectedAccount,
+        alerts_found: data.alerts_found,
+        paused_count: data.paused_count,
+      });
       await loadCampaigns();
       loadNotifications();
     } catch (err) {

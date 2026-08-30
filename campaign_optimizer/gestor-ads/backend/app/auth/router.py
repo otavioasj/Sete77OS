@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import logging
+from datetime import datetime, timezone
 
 import httpx
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Form, Query
 from fastapi.responses import RedirectResponse
 from supabase import Client
 
@@ -15,8 +16,10 @@ from app.auth.models import (
     RegisterRequest,
     User,
 )
+from app.config import get_settings
 from app.dependencies import get_current_user, get_supabase, get_token_manager
 from app.meta.token_manager import TokenManager
+from app.shared.crypto import parse_meta_signed_request
 from app.shared.exceptions import AppError
 
 logger = logging.getLogger(__name__)
@@ -139,3 +142,76 @@ async def meta_callback(
 
     # Redirect user back to frontend dashboard
     return RedirectResponse(url="https://ads.creativeagenciamkt.com.br/", status_code=302)
+
+
+@router.post("/meta/deauthorize")
+async def meta_deauthorize(
+    signed_request: str = Form(...),
+    supabase: Client = Depends(get_supabase),
+):
+    """Meta calls this when a user removes/deauthorizes the app on their Facebook
+    account. We revoke the stored token, disconnect the ad accounts and turn off
+    automation for that owner, so nothing keeps trying to act on their behalf.
+    """
+    settings = get_settings()
+
+    try:
+        data = parse_meta_signed_request(signed_request, settings.meta_app_secret)
+    except ValueError as exc:
+        logger.warning("Deauthorize: signed_request inválido: %s", exc)
+        return {"status": "ignored"}
+
+    meta_user_id = data.get("user_id")
+    if not meta_user_id:
+        logger.warning("Deauthorize: signed_request sem user_id: %s", data)
+        return {"status": "ignored"}
+
+    connections = (
+        supabase.table("meta_connections")
+        .select("id, owner_id")
+        .eq("meta_user_id", meta_user_id)
+        .execute()
+        .data
+    )
+    if not connections:
+        logger.info("Deauthorize: nenhuma conexão encontrada para meta_user_id=%s", meta_user_id)
+        return {"status": "ok"}
+
+    now = datetime.now(timezone.utc).isoformat()
+
+    for conn in connections:
+        owner_id = conn["owner_id"]
+
+        # Invalidate the stored token — clearing it (instead of deleting the row)
+        # keeps history but makes it unusable immediately.
+        supabase.table("meta_connections").update(
+            {"access_token": "", "expires_at": now}
+        ).eq("id", conn["id"]).execute()
+
+        # Mark this owner's Meta ad accounts as disconnected.
+        supabase.table("ad_accounts").update({"status": "disconnected"}).eq(
+            "client_id", owner_id
+        ).eq("platform", "meta_ads").execute()
+
+        # Turn off automation so nothing tries to auto-pause a campaign we can no
+        # longer reach.
+        supabase.table("automation_settings").update(
+            {"auto_pause_enabled": False, "server_schedule_enabled": False}
+        ).eq("owner_id", owner_id).execute()
+
+        supabase.table("audit_log").insert(
+            {
+                "owner_id": owner_id,
+                "acao": "meta_deauthorize",
+                "entidade": "meta_connections",
+                "request": {"meta_user_id": meta_user_id},
+                "response": {"status": "revoked"},
+                "origem": "meta_webhook",
+            }
+        ).execute()
+
+        logger.info(
+            "Deauthorize processado: owner_id=%s meta_user_id=%s", owner_id, meta_user_id
+        )
+
+    return {"status": "ok"}

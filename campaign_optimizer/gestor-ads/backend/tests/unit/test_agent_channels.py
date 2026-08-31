@@ -75,3 +75,31 @@ async def test_telegram_download_media():
     adapter = TelegramAdapter(bot_token="TEST")
     data = await adapter.download_media("abc")
     assert data == b"fake-audio-bytes"
+
+
+from app.agent.channels.evolution import EvolutionAdapter
+
+
+@respx.mock
+async def test_evolution_send_text():
+    respx.post("http://evolution:8080/message/sendText/creative-ads").mock(
+        return_value=Response(200, json={"status": "success"})
+    )
+    adapter = EvolutionAdapter(base_url="http://evolution:8080", api_key="evo-key", instance="creative-ads")
+    await adapter.send_text("558599999999", "olá")
+    call = respx.calls.last
+    assert call.request.headers["apikey"] == "evo-key"
+
+
+async def test_evolution_receive_webhook_text():
+    adapter = EvolutionAdapter(base_url="http://evolution:8080", api_key="evo-key", instance="creative-ads")
+    payload = {
+        "data": {
+            "key": {"remoteJid": "558599999999@s.whatsapp.net"},
+            "message": {"conversation": "quero ver minhas métricas"},
+        }
+    }
+    msg = await adapter.receive_webhook(payload)
+    assert msg.channel == "evolution"
+    assert msg.channel_user_id == "558599999999"
+    assert msg.text == "quero ver minhas métricas"

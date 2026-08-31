@@ -5,26 +5,33 @@ from datetime import datetime, timezone
 
 
 async def get_or_create_conversation(supabase, channel: str, channel_user_id: str) -> dict:
-    """Find the conversation for this channel+user, or create a fresh one
-    (owner_id/ad_account_id null until onboarding links them)."""
-    existing = (
+    """Find the conversation for this channel+user, or create a fresh one.
+
+    Uses upsert on the (channel, channel_user_id) unique constraint so two
+    webhooks arriving at once can't race into a duplicate insert. Only the
+    conflict keys are written, so an existing owner_id/ad_account_id is kept
+    (owner_id stays NULL until the Meta OAuth callback links a real account).
+    """
+    rows = (
+        supabase.table("conversations")
+        .upsert(
+            {"channel": channel, "channel_user_id": channel_user_id},
+            on_conflict="channel,channel_user_id",
+        )
+        .execute()
+        .data
+    )
+    if rows:
+        return rows[0]
+
+    return (
         supabase.table("conversations")
         .select("*")
         .eq("channel", channel)
         .eq("channel_user_id", channel_user_id)
         .execute()
-        .data
-    )
-    if existing:
-        return existing[0]
-
-    row = (
-        supabase.table("conversations")
-        .insert({"channel": channel, "channel_user_id": channel_user_id, "owner_id": None})
-        .execute()
         .data[0]
     )
-    return row
 
 
 async def record_message(
@@ -34,6 +41,7 @@ async def record_message(
     conteudo: str,
     *,
     media_url: str | None = None,
+    external_message_id: str | None = None,
     transcricao: str | None = None,
     modelo_usado: str | None = None,
     tokens_input: int = 0,
@@ -45,12 +53,49 @@ async def record_message(
             "papel": papel,
             "conteudo": conteudo,
             "media_url": media_url,
+            "external_message_id": external_message_id,
             "transcricao": transcricao,
             "modelo_usado": modelo_usado,
             "tokens_input": tokens_input,
             "tokens_output": tokens_output,
         }
     ).execute()
+
+
+async def get_recent_messages(supabase, conversation_id: str, limit: int = 10) -> list[dict]:
+    """Last `limit` messages of this conversation, oldest first, shaped for the
+    Anthropic messages array. Stored 'tool' rows are skipped: tool_use/tool_result
+    blocks are rebuilt inside a single run_agent_turn and don't persist across turns."""
+    rows = (
+        supabase.table("messages")
+        .select("papel,conteudo,criado_em")
+        .eq("conversation_id", conversation_id)
+        .order("criado_em", desc=True)
+        .limit(limit)
+        .execute()
+        .data
+        or []
+    )
+    history = [
+        {"role": row["papel"], "content": row["conteudo"]}
+        for row in reversed(rows)
+        if row.get("papel") in ("user", "assistant") and row.get("conteudo")
+    ]
+    return history
+
+
+async def message_already_processed(supabase, conversation_id: str, external_message_id: str) -> bool:
+    """Webhook idempotency — channels redeliver on timeout/retry."""
+    rows = (
+        supabase.table("messages")
+        .select("id")
+        .eq("conversation_id", conversation_id)
+        .eq("external_message_id", external_message_id)
+        .execute()
+        .data
+        or []
+    )
+    return bool(rows)
 
 
 async def update_memory(

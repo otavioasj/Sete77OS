@@ -4,27 +4,54 @@ import pytest
 
 from app.agent.conversation import (
     get_or_create_conversation,
+    get_recent_messages,
+    message_already_processed,
     link_ad_account,
     record_message,
     update_memory,
 )
 
 
-async def test_get_or_create_conversation_existing(fake_supabase):
-    fake_supabase.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value.data = [
+async def test_get_or_create_conversation_upserts(fake_supabase):
+    fake_supabase.table.return_value.upsert.return_value.execute.return_value.data = [
         {"id": "conv-1", "owner_id": "user-1", "ad_account_id": None, "resumo_memoria": "", "memoria_negocio": {}}
     ]
     row = await get_or_create_conversation(fake_supabase, "telegram", "555")
     assert row["id"] == "conv-1"
+    args, kwargs = fake_supabase.table.return_value.upsert.call_args
+    assert args[0] == {"channel": "telegram", "channel_user_id": "555"}
+    assert kwargs["on_conflict"] == "channel,channel_user_id"
 
 
-async def test_get_or_create_conversation_creates_new(fake_supabase):
-    fake_supabase.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value.data = []
-    fake_supabase.table.return_value.insert.return_value.execute.return_value.data = [
-        {"id": "conv-new", "owner_id": None, "ad_account_id": None, "resumo_memoria": "", "memoria_negocio": {}}
+async def test_get_or_create_conversation_falls_back_to_select(fake_supabase):
+    fake_supabase.table.return_value.upsert.return_value.execute.return_value.data = []
+    fake_supabase.table.return_value.select.return_value.eq.return_value.eq.return_value.execute.return_value.data = [
+        {"id": "conv-new", "owner_id": None}
     ]
     row = await get_or_create_conversation(fake_supabase, "telegram", "555")
     assert row["id"] == "conv-new"
+
+
+async def test_get_recent_messages_skips_tool_rows(fake_supabase):
+    chain = fake_supabase.table.return_value.select.return_value.eq.return_value.order.return_value.limit.return_value
+    chain.execute.return_value.data = [
+        {"papel": "assistant", "conteudo": "proposta pronta"},
+        {"papel": "tool", "conteudo": "{}"},
+        {"papel": "user", "conteudo": "quero uma campanha"},
+    ]
+    history = await get_recent_messages(fake_supabase, "conv-1")
+    assert history == [
+        {"role": "user", "content": "quero uma campanha"},
+        {"role": "assistant", "content": "proposta pronta"},
+    ]
+
+
+async def test_message_already_processed(fake_supabase):
+    chain = fake_supabase.table.return_value.select.return_value.eq.return_value.eq.return_value
+    chain.execute.return_value.data = [{"id": "m1"}]
+    assert await message_already_processed(fake_supabase, "conv-1", "ext-1") is True
+    chain.execute.return_value.data = []
+    assert await message_already_processed(fake_supabase, "conv-1", "ext-1") is False
 
 
 async def test_record_message(fake_supabase):

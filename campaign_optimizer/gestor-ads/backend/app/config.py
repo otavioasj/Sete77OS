@@ -26,6 +26,13 @@ class Settings(BaseSettings):
 
     # Agent — Telegram
     telegram_bot_token: str = ""
+    # Shared secret Telegram echoes back in X-Telegram-Bot-Api-Secret-Token
+    # (registered via setWebhook's secret_token param). MUST be set in production.
+    telegram_webhook_secret: str = ""
+
+    # Web dashboard URL — chat users are told to log in here. The chat never
+    # provisions accounts; linking happens through the Meta OAuth callback.
+    frontend_url: str = "http://localhost:3000"
 
     # Agent — Evolution API (WhatsApp via QR, experimental channel)
     evolution_base_url: str = ""

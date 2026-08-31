@@ -6,7 +6,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from app.agent.conversation import link_ad_account
+from app.core.analysis import CampaignBriefing, generate_campaign_strategy
 from app.core.kpis import summarize_kpis
+from app.core.naming import campaign_name
 from app.meta.client import MetaAdsClient
 from app.shared.exceptions import DraftValidationError, NotFoundError
 
@@ -97,3 +99,98 @@ async def consultar_metricas(ctx: ToolContext, meta_client: MetaAdsClient) -> di
 async def pausar_campanha(ctx: ToolContext, meta_client: MetaAdsClient, *, campanha_id: str) -> dict:
     await meta_client.update_status(campanha_id, "PAUSED")
     return {"campanha_id": campanha_id, "status": "PAUSED"}
+
+
+async def propor_campanha(
+    ctx: ToolContext,
+    *,
+    produto: str,
+    objetivo: str,
+    verba_total: float,
+    dias: int,
+    publico_alvo: str,
+    destino_lead: str,
+    marca: str,
+) -> dict:
+    """Ask Claude (via core.analysis) for a justified strategy, save it as a
+    campaign_drafts row with status='rascunho', linked to this conversation."""
+    briefing = CampaignBriefing(
+        produto=produto, objetivo=objetivo, verba_total=verba_total, dias=dias,
+        publico_alvo=publico_alvo, destino_lead=destino_lead, marca=marca,
+    )
+    settings = ctx.settings
+    strategy = await generate_campaign_strategy(
+        briefing,
+        anthropic_api_key=getattr(settings, "anthropic_api_key", ""),
+        anthropic_workspace_id=getattr(settings, "anthropic_workspace_id", ""),
+    )
+
+    payload = {
+        "marca": marca,
+        "objetivo": objetivo,
+        "publico": strategy.publico,
+        "verba_diaria": strategy.verba_diaria,
+        "dias": strategy.dias,
+        "estrutura": strategy.estrutura,
+        "copy": strategy.copy,
+        "justificativa": strategy.justificativa,
+    }
+    row = (
+        ctx.supabase.table("campaign_drafts")
+        .insert(
+            {
+                "owner_id": ctx.user_id,
+                "ad_account_id": ctx.ad_account_id,
+                "conversation_id": ctx.conversation_id,
+                "payload": payload,
+                "status": "rascunho",
+            }
+        )
+        .execute()
+        .data[0]
+    )
+    return {"draft_id": row["id"], **payload}
+
+
+async def criar_campanha(ctx: ToolContext, meta_client: MetaAdsClient, *, draft_id: str) -> dict:
+    """Create the campaign on Meta — ALWAYS PAUSED. Refuses if the draft
+    linked to this conversation isn't approved yet (spec §4, §7)."""
+    draft = (
+        ctx.supabase.table("campaign_drafts")
+        .select("id,status,payload")
+        .eq("id", draft_id)
+        .single()
+        .execute()
+        .data
+    )
+    if not draft or draft["status"] != "aprovado":
+        raise DraftValidationError(
+            "Essa campanha ainda não foi aprovada. Confirme a estratégia antes de eu criar."
+        )
+
+    payload = draft["payload"]
+    name = campaign_name(payload["marca"], payload["objetivo"], payload["publico"])
+    daily_cents = int(round(payload["verba_diaria"] * 100))
+
+    result = await meta_client.create_campaign(
+        name=name,
+        objective=payload["objetivo"],
+        daily_budget_cents=daily_cents,
+    )
+
+    ctx.supabase.table("campaign_drafts").update(
+        {"status": "criado", "meta_campaign_id": result["id"]}
+    ).eq("id", draft_id).execute()
+
+    return {"meta_campaign_id": result["id"], "name": name, "status": "PAUSED"}
+
+
+def localizacao_por_raio(*, latitude: float, longitude: float, raio_km: float) -> dict:
+    """Build the Meta `custom_locations` targeting payload for a radius
+    around a point (from a shared pin or a Google Maps link, already
+    resolved to lat/lng before this tool is called — spec §4)."""
+    return {
+        "custom_locations": [
+            {"latitude": latitude, "longitude": longitude, "radius": raio_km, "distance_unit": "kilometer"}
+        ]
+    }

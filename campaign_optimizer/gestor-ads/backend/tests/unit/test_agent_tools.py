@@ -2,7 +2,16 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from app.agent.tools import ToolContext, consultar_metricas, listar_contas, pausar_campanha, selecionar_conta
+from app.agent.tools import (
+    ToolContext,
+    consultar_metricas,
+    criar_campanha,
+    listar_contas,
+    localizacao_por_raio,
+    pausar_campanha,
+    propor_campanha,
+    selecionar_conta,
+)
 from app.shared.exceptions import DraftValidationError
 
 
@@ -66,3 +75,57 @@ async def test_pausar_campanha(fake_supabase):
     result = await pausar_campanha(ctx, meta_client, campanha_id="123")
     meta_client.update_status.assert_called_once_with("123", "PAUSED")
     assert result["status"] == "PAUSED"
+
+
+async def test_propor_campanha_creates_draft(fake_supabase, monkeypatch):
+    async def fake_strategy(briefing, **kwargs):
+        from app.core.analysis import CampaignStrategy
+
+        return CampaignStrategy(
+            verba_diaria=50.0, dias=20, estrutura="CBO", publico=briefing.publico_alvo,
+            copy="copy gerada", justificativa="R$50/dia evita fase de aprendizado longa",
+        )
+
+    monkeypatch.setattr("app.agent.tools.generate_campaign_strategy", fake_strategy)
+    fake_supabase.table.return_value.insert.return_value.execute.return_value.data = [
+        {"id": "draft-1", "status": "rascunho", "payload": {}}
+    ]
+
+    ctx = _ctx(fake_supabase, ad_account_id="acc-1")
+    result = await propor_campanha(
+        ctx, produto="imóvel alto padrão", objetivo="LEAD_GENERATION", verba_total=1000.0,
+        dias=20, publico_alvo="Fortaleza, 30-55 anos", destino_lead="whatsapp", marca="Fortec",
+    )
+    assert result["draft_id"] == "draft-1"
+    assert result["justificativa"] == "R$50/dia evita fase de aprendizado longa"
+
+
+async def test_criar_campanha_requires_approved_draft(fake_supabase):
+    fake_supabase.table.return_value.select.return_value.eq.return_value.single.return_value.execute.return_value.data = {
+        "id": "draft-1", "status": "rascunho", "payload": {}
+    }
+    meta_client = AsyncMock()
+    ctx = _ctx(fake_supabase, ad_account_id="acc-1")
+    with pytest.raises(DraftValidationError):
+        await criar_campanha(ctx, meta_client, draft_id="draft-1")
+    meta_client.create_campaign.assert_not_called()
+
+
+async def test_criar_campanha_creates_when_approved(fake_supabase):
+    fake_supabase.table.return_value.select.return_value.eq.return_value.single.return_value.execute.return_value.data = {
+        "id": "draft-1",
+        "status": "aprovado",
+        "payload": {"marca": "Fortec", "objetivo": "trafego", "publico": "Fortaleza", "verba_diaria": 50.0},
+    }
+    meta_client = AsyncMock()
+    meta_client.create_campaign.return_value = {"id": "camp-123"}
+    ctx = _ctx(fake_supabase, ad_account_id="acc-1")
+    result = await criar_campanha(ctx, meta_client, draft_id="draft-1")
+    assert result["meta_campaign_id"] == "camp-123"
+    _, kwargs = meta_client.create_campaign.call_args
+    assert kwargs.get("name", "").startswith("[Fortec]")
+
+
+def test_localizacao_por_raio():
+    result = localizacao_por_raio(latitude=-3.7319, longitude=-38.5267, raio_km=3.0)
+    assert result["custom_locations"] == [{"latitude": -3.7319, "longitude": -38.5267, "radius": 3.0, "distance_unit": "kilometer"}]

@@ -13,7 +13,7 @@ the dashboard-only endpoint in its own module, mounted from app/main.py.
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from supabase import Client
 
@@ -22,6 +22,7 @@ from app.agent.router import _adapter_for
 from app.auth.models import User
 from app.config import Settings, get_settings
 from app.dependencies import get_current_user, get_supabase
+from app.shared.exceptions import NotFoundError
 
 router = APIRouter(prefix="/agent", tags=["agent"])
 
@@ -50,10 +51,7 @@ async def link_chat(
     """
     conv = await link_conversation_by_code(supabase, body.code, user.id)
     if not conv:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Código inválido ou expirado. Peça um novo código pelo chat.",
-        )
+        raise NotFoundError("Código inválido ou expirado. Peça um novo código pelo chat.")
 
     has_meta = bool(
         supabase.table("meta_connections").select("id").eq("owner_id", user.id).execute().data

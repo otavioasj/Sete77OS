@@ -66,8 +66,14 @@ async def login(
 
 
 @router.get("/meta/login", response_model=MetaOAuthURL)
-async def meta_login(user: User = Depends(get_current_user)):
-    url = generate_oauth_url(user.id)
+async def meta_login(
+    conversation_id: str | None = Query(default=None),
+    user: User = Depends(get_current_user),
+):
+    # conversation_id lets the dashboard flow (e.g. right after linking a chat
+    # via /agent/link-chat) tell the OAuth callback which chat to notify once
+    # Meta is connected — see meta_callback below.
+    url = generate_oauth_url(user.id, conversation_id)
     return MetaOAuthURL(url=url)
 
 

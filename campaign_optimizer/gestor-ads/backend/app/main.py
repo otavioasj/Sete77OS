@@ -6,6 +6,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from app.agent.dashboard_router import router as agent_dashboard_router
 from app.analysis.router import router as analysis_router
 from app.auth.router import router as auth_router
 from app.automation.router import router as automation_router
@@ -59,3 +60,4 @@ app.include_router(campaigns_router)
 app.include_router(analysis_router)
 app.include_router(automation_router)
 app.include_router(events_router)
+app.include_router(agent_dashboard_router)

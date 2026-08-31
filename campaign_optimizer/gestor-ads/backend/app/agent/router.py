@@ -10,6 +10,7 @@ from app.agent.channels.base import IncomingMessage
 from app.agent.channels.evolution import EvolutionAdapter
 from app.agent.channels.telegram import TelegramAdapter
 from app.agent.conversation import (
+    generate_link_code,
     get_or_create_conversation,
     get_recent_messages,
     message_already_processed,
@@ -28,12 +29,14 @@ router = APIRouter(prefix="/agent", tags=["agent"])
 HISTORY_LIMIT = 10
 
 # Chat users are NEVER auto-provisioned: they must already have a dashboard
-# account. Connecting Meta from the dashboard links this chat automatically
-# (the OAuth callback writes conversations.owner_id — see app/auth/router.py).
+# account. Linking happens via a short one-time code: we generate it here and
+# the user enters it on the dashboard's "Conectar WhatsApp/Telegram" screen,
+# which calls POST /agent/link-chat (see app/agent/dashboard_router.py) to
+# bind conversations.owner_id. Connecting Meta afterwards reuses the existing
+# OAuth flow (app/auth/router.py::meta_callback already notifies the chat).
 _ONBOARDING_TEMPLATE = (
-    "Oi! Pra eu cuidar dos seus anúncios por aqui, primeiro entre no painel em {url} "
-    "com sua conta e conecte sua conta Meta por lá. Assim que conectar, esta conversa "
-    "é vinculada automaticamente e a gente já começa."
+    "Oi! Pra eu cuidar dos seus anúncios por aqui, acesse o painel em {url}, entre na sua "
+    "conta e digite esse código pra conectar essa conversa: {code} (válido por 15 min)."
 )
 _EVOLUTION_DISCLAIMER = (
     "\n\nObs: esse canal de WhatsApp é experimental (conexão não oficial) e "
@@ -72,9 +75,10 @@ async def process_incoming_message(msg: IncomingMessage, settings: Settings, sup
 
     if not conv.get("owner_id"):
         # Not linked to a dashboard account yet. The chat never creates users;
-        # onboarding is: log in on the web dashboard, connect Meta there, and
-        # the OAuth callback links this conversation.
-        texto_onboarding = _ONBOARDING_TEMPLATE.format(url=settings.frontend_url)
+        # onboarding is: log in on the dashboard and enter the one-time code
+        # we send here to link this conversation (POST /agent/link-chat).
+        code = await generate_link_code(supabase, conv["id"])
+        texto_onboarding = _ONBOARDING_TEMPLATE.format(url=settings.frontend_url, code=code)
         if msg.channel == "evolution":
             texto_onboarding += _EVOLUTION_DISCLAIMER
         await adapter.send_text(msg.channel_user_id, texto_onboarding)

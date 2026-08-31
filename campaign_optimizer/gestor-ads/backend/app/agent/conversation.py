@@ -1,7 +1,8 @@
 # app/agent/conversation.py
 from __future__ import annotations
 
-from datetime import datetime, timezone
+import secrets
+from datetime import datetime, timedelta, timezone
 
 
 async def get_or_create_conversation(supabase, channel: str, channel_user_id: str) -> dict:
@@ -115,3 +116,42 @@ async def update_memory(
 
 async def link_ad_account(supabase, conversation_id: str, ad_account_id: str) -> None:
     supabase.table("conversations").update({"ad_account_id": ad_account_id}).eq("id", conversation_id).execute()
+
+
+async def generate_link_code(supabase, conversation_id: str, *, ttl_minutes: int = 15) -> str:
+    """Create a short one-time numeric code for linking a chat conversation to a
+    dashboard account. Stored directly on the conversation row — a conversation
+    has at most one pending code at a time, so a separate table is unnecessary.
+    """
+    code = str(secrets.randbelow(900000) + 100000)
+    expires_at = (datetime.now(timezone.utc) + timedelta(minutes=ttl_minutes)).isoformat()
+    supabase.table("conversations").update(
+        {"link_code": code, "link_code_expires_at": expires_at}
+    ).eq("id", conversation_id).execute()
+    return code
+
+
+async def link_conversation_by_code(supabase, code: str, owner_id: str) -> dict | None:
+    """Look up the conversation with this pending, unexpired link code and bind
+    it to `owner_id`, clearing the code so it can't be reused. Returns the
+    linked conversation row, or None if the code is unknown/expired.
+    """
+    now = datetime.now(timezone.utc).isoformat()
+    rows = (
+        supabase.table("conversations")
+        .select("*")
+        .eq("link_code", code)
+        .gt("link_code_expires_at", now)
+        .execute()
+        .data
+        or []
+    )
+    if not rows:
+        return None
+
+    conv = rows[0]
+    supabase.table("conversations").update(
+        {"owner_id": owner_id, "link_code": None, "link_code_expires_at": None}
+    ).eq("id", conv["id"]).execute()
+    conv["owner_id"] = owner_id
+    return conv

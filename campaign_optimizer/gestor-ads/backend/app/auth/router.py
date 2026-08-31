@@ -16,7 +16,7 @@ from app.auth.models import (
     RegisterRequest,
     User,
 )
-from app.config import get_settings
+from app.config import Settings, get_settings
 from app.dependencies import get_current_user, get_supabase, get_token_manager
 from app.meta.token_manager import TokenManager
 from app.shared.crypto import parse_meta_signed_request
@@ -77,10 +77,11 @@ async def meta_callback(
     state: str = Query(...),
     supabase: Client = Depends(get_supabase),
     tm: TokenManager = Depends(get_token_manager),
+    settings: Settings = Depends(get_settings),
 ):
     # Validate state token
     try:
-        user_id = validate_state(state)
+        user_id, conversation_id = validate_state(state)
     except ValueError as exc:
         raise AppError(str(exc))
 
@@ -139,6 +140,28 @@ async def meta_callback(
             logger.warning("Erro ao salvar ad account %s: %s", acc["id"], exc)
 
     logger.info("Meta callback: %d ad accounts salvas para user %s", len(accounts_data), user_id)
+
+    if conversation_id:
+        from app.agent.channels.evolution import EvolutionAdapter
+        from app.agent.channels.telegram import TelegramAdapter
+
+        conv_rows = supabase.table("conversations").select("*").eq("id", conversation_id).execute().data
+        if conv_rows:
+            conv = conv_rows[0]
+            supabase.table("conversations").update({"owner_id": user_id}).eq("id", conversation_id).execute()
+            adapter = (
+                TelegramAdapter(bot_token=settings.telegram_bot_token)
+                if conv["channel"] == "telegram"
+                else EvolutionAdapter(
+                    base_url=settings.evolution_base_url,
+                    api_key=settings.evolution_api_key,
+                    instance=settings.evolution_instance,
+                )
+            )
+            lines = [f"{i + 1}. {a.get('name', '')} ({a['id']})" for i, a in enumerate(accounts_data)]
+            text = "Conectei sua conta Meta! Encontrei essas contas de anúncio:\n" + "\n".join(lines)
+            text += "\n\nResponda com o número ou nome da conta que você quer usar."
+            await adapter.send_text(conv["channel_user_id"], text)
 
     # Redirect user back to frontend dashboard
     return RedirectResponse(url="https://ads.creativeagenciamkt.com.br/", status_code=302)

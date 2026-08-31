@@ -30,8 +30,9 @@ def test_validate_state_round_trip():
         )
         url = generate_oauth_url("user-uuid-123")
         state = url.split("state=")[1].split("&")[0]
-        user_id = validate_state(state)
+        user_id, conversation_id = validate_state(state)
         assert user_id == "user-uuid-123"
+        assert conversation_id is None
 
 
 def test_validate_state_rejects_unknown_state():
@@ -51,6 +52,6 @@ def test_validate_state_rejects_reuse():
         url = generate_oauth_url("user-uuid-123")
         state = url.split("state=")[1].split("&")[0]
 
-        assert validate_state(state) == "user-uuid-123"
+        assert validate_state(state) == ("user-uuid-123", None)
         with pytest.raises(ValueError):
             validate_state(state)

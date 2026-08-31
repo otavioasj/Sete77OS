@@ -21,8 +21,12 @@ def _cleanup_expired() -> None:
         _state_store.pop(k, None)
 
 
-def generate_oauth_url(user_id: str) -> str:
-    """Generate Meta OAuth URL with opaque state token."""
+def generate_oauth_url(user_id: str, conversation_id: str | None = None) -> str:
+    """Generate Meta OAuth URL with opaque state token.
+
+    conversation_id is set when the flow was started from the chat agent
+    (Telegram/Evolution), so the callback knows which chat to notify.
+    """
     settings = get_settings()
 
     # Generate a short opaque token (no dots, safe for Facebook redirect)
@@ -33,6 +37,7 @@ def generate_oauth_url(user_id: str) -> str:
         _cleanup_expired()
         _state_store[state_key] = {
             "user_id": user_id,
+            "conversation_id": conversation_id,
             "expires_at": datetime.now(timezone.utc) + timedelta(minutes=10),
         }
 
@@ -46,8 +51,9 @@ def generate_oauth_url(user_id: str) -> str:
     return f"https://www.facebook.com/v23.0/dialog/oauth?{urlencode(params)}"
 
 
-def validate_state(state: str) -> str:
-    """Validate opaque state token and return user_id. Raises on invalid/expired."""
+def validate_state(state: str) -> tuple[str, str | None]:
+    """Validate opaque state token and return (user_id, conversation_id).
+    Raises on invalid/expired."""
     with _state_lock:
         entry = _state_store.pop(state, None)
 
@@ -57,4 +63,4 @@ def validate_state(state: str) -> str:
     if entry["expires_at"] < datetime.now(timezone.utc):
         raise ValueError("State expirado")
 
-    return entry["user_id"]
+    return entry["user_id"], entry.get("conversation_id")

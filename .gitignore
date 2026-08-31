@@ -48,3 +48,4 @@ campaign_optimizer/**/__pycache__/
 campaign_optimizer/streamlit.log
 campaign_optimizer/streamlit.err
 clientes/cliente-teste/
+.worktrees/

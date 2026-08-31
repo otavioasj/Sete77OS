@@ -9,7 +9,7 @@ from supabase import Client
 from app.agent.channels.base import IncomingMessage
 from app.agent.channels.evolution import EvolutionAdapter
 from app.agent.channels.telegram import TelegramAdapter
-from app.agent.conversation import get_or_create_conversation, record_message, update_memory
+from app.agent.conversation import get_or_create_conversation, record_message
 from app.agent.llm import run_agent_turn
 from app.agent.tools import ToolContext
 from app.agent.transcription import transcribe_audio

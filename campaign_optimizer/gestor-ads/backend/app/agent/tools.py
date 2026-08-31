@@ -9,11 +9,92 @@ from app.agent.conversation import link_ad_account
 from app.core.analysis import CampaignBriefing, generate_campaign_strategy
 from app.core.kpis import summarize_kpis
 from app.core.naming import campaign_name
-from app.meta.client import MetaAdsClient
+from app.meta.client import MetaAdsClient, extract_metric
 from app.shared.exceptions import DraftValidationError, NotFoundError
 
 # action_type substrings (Meta insights "actions" array) counted as leads.
 LEAD_ACTION_TERMS = ("lead", "messaging_conversation_started")
+
+# Meta Marketing API campaign objectives (v23). Anything sent to Meta must be
+# one of these literals — a free-form objective would just 400 at the API.
+META_OBJECTIVES = {
+    "OUTCOME_TRAFFIC",
+    "OUTCOME_LEADS",
+    "OUTCOME_ENGAGEMENT",
+    "OUTCOME_AWARENESS",
+    "OUTCOME_SALES",
+    "OUTCOME_APP_PROMOTION",
+}
+
+# Common free-form ways users/the LLM describe an objective.
+_OBJECTIVE_SYNONYMS = {
+    "trafego": "OUTCOME_TRAFFIC",
+    "tráfego": "OUTCOME_TRAFFIC",
+    "traffic": "OUTCOME_TRAFFIC",
+    "visitas": "OUTCOME_TRAFFIC",
+    "cliques": "OUTCOME_TRAFFIC",
+    "lead": "OUTCOME_LEADS",
+    "leads": "OUTCOME_LEADS",
+    "cadastro": "OUTCOME_LEADS",
+    "cadastros": "OUTCOME_LEADS",
+    "conversao": "OUTCOME_LEADS",
+    "conversão": "OUTCOME_LEADS",
+    "engajamento": "OUTCOME_ENGAGEMENT",
+    "engagement": "OUTCOME_ENGAGEMENT",
+    "mensagens": "OUTCOME_ENGAGEMENT",
+    "whatsapp": "OUTCOME_ENGAGEMENT",
+    "reconhecimento": "OUTCOME_AWARENESS",
+    "alcance": "OUTCOME_AWARENESS",
+    "awareness": "OUTCOME_AWARENESS",
+    "marca": "OUTCOME_AWARENESS",
+    "vendas": "OUTCOME_SALES",
+    "sales": "OUTCOME_SALES",
+    "compras": "OUTCOME_SALES",
+    "ecommerce": "OUTCOME_SALES",
+    "app": "OUTCOME_APP_PROMOTION",
+    "aplicativo": "OUTCOME_APP_PROMOTION",
+    "instalacoes": "OUTCOME_APP_PROMOTION",
+    "instalações": "OUTCOME_APP_PROMOTION",
+}
+
+
+def normalize_objective(objetivo: str) -> str:
+    """Map a free-form objective to a real Meta objective enum value.
+
+    Raises DraftValidationError when it can't be resolved, so the agent asks
+    the user instead of letting Meta reject the campaign with a raw 400.
+    """
+    raw = (objetivo or "").strip()
+    upper = raw.upper().replace(" ", "_")
+    if upper in META_OBJECTIVES:
+        return upper
+    lowered = raw.lower()
+    for term, value in _OBJECTIVE_SYNONYMS.items():
+        if term in lowered:
+            return value
+    raise DraftValidationError(
+        f"Não reconheci o objetivo '{objetivo}'. Use um destes: "
+        + ", ".join(sorted(META_OBJECTIVES))
+    )
+
+
+def _load_draft_for_conversation(ctx: ToolContext, draft_id: str) -> dict:
+    """Fetch a draft and refuse it if it doesn't belong to this conversation."""
+    draft = (
+        ctx.supabase.table("campaign_drafts")
+        .select("id,status,payload,conversation_id,ad_account_id")
+        .eq("id", draft_id)
+        .single()
+        .execute()
+        .data
+    )
+    if not draft:
+        raise DraftValidationError("Não encontrei essa campanha.")
+    if draft.get("conversation_id") != ctx.conversation_id:
+        raise DraftValidationError(
+            "Essa campanha não pertence a esta conversa. Não posso mexer nela a partir daqui."
+        )
+    return draft
 
 
 @dataclass
@@ -77,7 +158,7 @@ def _normalize_insight_row(row: dict) -> dict:
     return {
         "campaign": row.get("campaign_name", "?"),
         "spend": row.get("spend", 0),
-        "leads": MetaAdsClient._extract_metric(row.get("actions"), LEAD_ACTION_TERMS),
+        "leads": extract_metric(row.get("actions"), LEAD_ACTION_TERMS),
         "clicks": row.get("clicks", 0),
         "impressions": row.get("impressions", 0),
     }
@@ -114,6 +195,12 @@ async def propor_campanha(
 ) -> dict:
     """Ask Claude (via core.analysis) for a justified strategy, save it as a
     campaign_drafts row with status='rascunho', linked to this conversation."""
+    if ctx.ad_account_id is None:
+        raise DraftValidationError(
+            "Antes de propor uma campanha, escolha a conta de anúncio primeiro."
+        )
+    objetivo = normalize_objective(objetivo)
+
     briefing = CampaignBriefing(
         produto=produto, objetivo=objetivo, verba_total=verba_total, dias=dias,
         publico_alvo=publico_alvo, destino_lead=destino_lead, marca=marca,
@@ -152,24 +239,25 @@ async def propor_campanha(
     return {"draft_id": row["id"], **payload}
 
 
+async def aprovar_campanha(ctx: ToolContext, *, draft_id: str) -> dict:
+    """Record the user's explicit approval of a draft — the auditable step
+    between propor_campanha and criar_campanha."""
+    draft = _load_draft_for_conversation(ctx, draft_id)
+    if draft["status"] != "rascunho":
+        raise DraftValidationError(
+            f"Essa campanha não está em rascunho (status atual: {draft['status']}). Não dá pra aprovar de novo."
+        )
+    ctx.supabase.table("campaign_drafts").update({"status": "aprovado"}).eq("id", draft_id).execute()
+    return {"draft_id": draft_id, "status": "aprovado"}
+
+
 async def criar_campanha(ctx: ToolContext, meta_client: MetaAdsClient, *, draft_id: str) -> dict:
     """Create the campaign on Meta — ALWAYS PAUSED. Refuses if the draft
     linked to this conversation isn't approved yet (spec §4, §7)."""
-    draft = (
-        ctx.supabase.table("campaign_drafts")
-        .select("id,status,payload,conversation_id,ad_account_id")
-        .eq("id", draft_id)
-        .single()
-        .execute()
-        .data
-    )
-    if not draft or draft["status"] != "aprovado":
+    draft = _load_draft_for_conversation(ctx, draft_id)
+    if draft["status"] != "aprovado":
         raise DraftValidationError(
             "Essa campanha ainda não foi aprovada. Confirme a estratégia antes de eu criar."
-        )
-    if draft.get("conversation_id") != ctx.conversation_id:
-        raise DraftValidationError(
-            "Essa campanha não pertence a esta conversa. Não posso criar a partir daqui."
         )
     if ctx.ad_account_id is not None and draft.get("ad_account_id") != ctx.ad_account_id:
         raise DraftValidationError(
@@ -177,12 +265,13 @@ async def criar_campanha(ctx: ToolContext, meta_client: MetaAdsClient, *, draft_
         )
 
     payload = draft["payload"]
+    objetivo = normalize_objective(payload["objetivo"])
     name = campaign_name(payload["marca"], payload["objetivo"], payload["publico"])
     daily_cents = int(round(payload["verba_diaria"] * 100))
 
     result = await meta_client.create_campaign(
         name=name,
-        objective=payload["objetivo"],
+        objective=objetivo,
         daily_budget_cents=daily_cents,
     )
 

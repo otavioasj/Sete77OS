@@ -1,12 +1,14 @@
 # app/agent/llm.py
 from __future__ import annotations
 
+import json
 import logging
 
 import anthropic
 
 from app.agent.tools import (
     ToolContext,
+    aprovar_campanha,
     consultar_metricas,
     criar_campanha,
     listar_contas,
@@ -18,7 +20,7 @@ from app.agent.tools import (
 
 logger = logging.getLogger(__name__)
 
-MODEL_HAIKU = "claude-haiku-4-5-20251001"
+MODEL_HAIKU = "claude-haiku-4-5"
 MODEL_SONNET = "claude-sonnet-5"
 
 _STRATEGY_KEYWORDS = (
@@ -43,6 +45,11 @@ mensagens curtas, é chat, não e-mail.
 Regras rígidas:
 - Toda campanha é criada com status PAUSED. Ative somente após confirmação explícita.
 - Peça aprovação explícita antes de criar qualquer campanha.
+- Fluxo de campanha, sempre nesta ordem: `propor_campanha` gera o rascunho e você
+  apresenta a estratégia; o usuário confirma explicitamente ("pode criar",
+  "aprovado", "sim"); só então você chama `aprovar_campanha` com o draft_id e,
+  logo em seguida, `criar_campanha` com o mesmo draft_id. Sem confirmação
+  explícita do usuário, nunca chame `aprovar_campanha`.
 - Nunca invente métrica, resultado ou histórico — chame a ferramenta correspondente.
 - Se o nível técnico do usuário for leigo, traduza toda métrica para consequência
   prática, nunca use sigla sem explicar. Se for avançado, use os termos técnicos
@@ -79,6 +86,18 @@ TOOL_DEFINITIONS: list[dict] = [
                 "marca": {"type": "string"},
             },
             "required": ["produto", "objetivo", "verba_total", "dias", "publico_alvo", "destino_lead", "marca"],
+        },
+    },
+    {
+        "name": "aprovar_campanha",
+        "description": (
+            "Registra a aprovação explícita do usuário para um rascunho de campanha. "
+            "Chame somente depois de o usuário confirmar em palavras. Passo obrigatório antes de criar_campanha."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {"draft_id": {"type": "string"}},
+            "required": ["draft_id"],
         },
     },
     {
@@ -139,6 +158,8 @@ async def dispatch_tool(name: str, tool_input: dict, ctx: ToolContext, meta_clie
         return await selecionar_conta(ctx, conta=tool_input["conta"])
     if name == "propor_campanha":
         return await propor_campanha(ctx, **tool_input)
+    if name == "aprovar_campanha":
+        return await aprovar_campanha(ctx, draft_id=tool_input["draft_id"])
     if name == "criar_campanha":
         return await criar_campanha(ctx, meta_client, draft_id=tool_input["draft_id"])
     if name == "consultar_metricas":
@@ -207,7 +228,7 @@ async def run_agent_turn(
         tool_block = next(b for b in response.content if getattr(b, "type", "") == "tool_use")
         try:
             tool_result = await dispatch_tool(tool_block.name, tool_block.input, ctx, meta_client)
-            tool_content = str(tool_result)
+            tool_content = json.dumps(tool_result, ensure_ascii=False, default=str)
         except Exception as exc:
             logger.warning("Tool %s failed: %s", tool_block.name, exc)
             tool_content = f"Erro: {exc}"

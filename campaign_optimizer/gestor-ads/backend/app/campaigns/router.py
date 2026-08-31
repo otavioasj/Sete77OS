@@ -17,7 +17,7 @@ from app.campaigns.schemas import (
 )
 from app.config import Settings, get_settings
 from app.dependencies import build_meta_client, get_current_user, get_supabase
-from app.meta.client import MetaAdsClient
+from app.meta.client import MetaAdsClient, extract_metric
 from app.shared.exceptions import AppError, CampaignSafetyError, DraftValidationError
 
 router = APIRouter(tags=["campaigns"])
@@ -183,12 +183,12 @@ async def sync_campaigns(
                 insights = await meta.get_insights(meta_camp_id, date_preset=body.date_preset)
                 for row in insights:
                     leads = int(
-                        MetaAdsClient._extract_metric(
+                        extract_metric(
                             row.get("actions"),
                             ("messaging_conversation_started", "lead", "contact", "omni_lead"),
                         )
                     )
-                    cpl = MetaAdsClient._extract_metric(
+                    cpl = extract_metric(
                         row.get("cost_per_action_type"),
                         ("messaging_conversation_started", "lead", "contact", "omni_lead"),
                     )

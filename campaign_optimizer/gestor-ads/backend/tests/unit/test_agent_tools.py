@@ -5,7 +5,9 @@ import pytest
 from app.agent.tools import (
     ToolContext,
     consultar_metricas,
+    aprovar_campanha,
     criar_campanha,
+    normalize_objective,
     listar_contas,
     localizacao_por_raio,
     pausar_campanha,
@@ -146,3 +148,64 @@ async def test_criar_campanha_rejects_draft_from_other_conversation(fake_supabas
 def test_localizacao_por_raio():
     result = localizacao_por_raio(latitude=-3.7319, longitude=-38.5267, raio_km=3.0)
     assert result["custom_locations"] == [{"latitude": -3.7319, "longitude": -38.5267, "radius": 3.0, "distance_unit": "kilometer"}]
+
+
+# --- objective validation (I2) ---
+
+
+def test_normalize_objective_passes_through_meta_enum():
+    assert normalize_objective("OUTCOME_LEADS") == "OUTCOME_LEADS"
+
+
+def test_normalize_objective_maps_portuguese():
+    assert normalize_objective("gerar leads") == "OUTCOME_LEADS"
+    assert normalize_objective("tráfego pro site") == "OUTCOME_TRAFFIC"
+    assert normalize_objective("vendas no ecommerce") == "OUTCOME_SALES"
+
+
+def test_normalize_objective_rejects_unknown():
+    with pytest.raises(DraftValidationError):
+        normalize_objective("virar unicórnio")
+
+
+# --- propor_campanha guards (I1) ---
+
+
+async def test_propor_campanha_requires_ad_account(fake_supabase):
+    ctx = _ctx(fake_supabase, ad_account_id=None)
+    with pytest.raises(DraftValidationError):
+        await propor_campanha(
+            ctx, produto="curso", objetivo="leads", verba_total=1000, dias=20,
+            publico_alvo="Fortaleza", destino_lead="whatsapp", marca="Fortec",
+        )
+
+
+# --- aprovar_campanha (C6) ---
+
+
+async def test_aprovar_campanha_approves_rascunho(fake_supabase):
+    fake_supabase.table.return_value.select.return_value.eq.return_value.single.return_value.execute.return_value.data = {
+        "id": "draft-1", "status": "rascunho", "payload": {}, "conversation_id": "conv-1", "ad_account_id": "acc-1",
+    }
+    ctx = _ctx(fake_supabase, ad_account_id="acc-1")
+    result = await aprovar_campanha(ctx, draft_id="draft-1")
+    assert result == {"draft_id": "draft-1", "status": "aprovado"}
+    fake_supabase.table.return_value.update.assert_called_once_with({"status": "aprovado"})
+
+
+async def test_aprovar_campanha_rejects_other_conversation(fake_supabase):
+    fake_supabase.table.return_value.select.return_value.eq.return_value.single.return_value.execute.return_value.data = {
+        "id": "draft-1", "status": "rascunho", "payload": {}, "conversation_id": "conv-OUTRA", "ad_account_id": "acc-1",
+    }
+    ctx = _ctx(fake_supabase, ad_account_id="acc-1")
+    with pytest.raises(DraftValidationError):
+        await aprovar_campanha(ctx, draft_id="draft-1")
+
+
+async def test_aprovar_campanha_rejects_non_rascunho(fake_supabase):
+    fake_supabase.table.return_value.select.return_value.eq.return_value.single.return_value.execute.return_value.data = {
+        "id": "draft-1", "status": "criado", "payload": {}, "conversation_id": "conv-1", "ad_account_id": "acc-1",
+    }
+    ctx = _ctx(fake_supabase, ad_account_id="acc-1")
+    with pytest.raises(DraftValidationError):
+        await aprovar_campanha(ctx, draft_id="draft-1")

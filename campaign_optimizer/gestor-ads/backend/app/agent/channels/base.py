@@ -13,7 +13,10 @@ class IncomingMessage:
     channel_user_id: str
     raw: dict
     text: str | None = None
-    audio_bytes: bytes | None = None
+    # Reference to media on the channel (Telegram file_id / Evolution media
+    # url). The actual download happens in the background task, never in the
+    # webhook handler — the webhook must ack fast.
+    audio_ref: str | None = None
     location: tuple[float, float] | None = None
 
 

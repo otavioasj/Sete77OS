@@ -16,6 +16,25 @@ logger = logging.getLogger(__name__)
 _RATE_LIMIT_CODES = {4, 17, 32, 613}
 
 
+def extract_metric(items: list[dict[str, Any]] | None, match_terms: tuple[str, ...]) -> float:
+    """Extract a metric value from a Meta insights `actions` array.
+
+    Migrated from campaign_optimizer/connectors/meta_ads.py — proven logic.
+    Sums every action whose action_type contains any of `match_terms`.
+    """
+    if not items:
+        return 0.0
+    total = 0.0
+    for item in items:
+        action_type = str(item.get("action_type", "")).lower()
+        if any(term in action_type for term in match_terms):
+            try:
+                total += float(item.get("value", 0) or 0)
+            except (TypeError, ValueError):
+                continue
+    return total
+
+
 class MetaAdsClient:
     """Client for Meta Marketing API v23.0 — read and write."""
 
@@ -95,24 +114,6 @@ class MetaAdsClient:
 
         return result
 
-    @staticmethod
-    def _extract_metric(items: list[dict[str, Any]] | None, match_terms: tuple[str, ...]) -> float:
-        """Extract metric value from Meta actions array.
-
-        Migrated from campaign_optimizer/connectors/meta_ads.py — proven logic.
-        Searches for action_types matching any of the match_terms.
-        """
-        if not items:
-            return 0.0
-        total = 0.0
-        for item in items:
-            action_type = str(item.get("action_type", "")).lower()
-            if any(term in action_type for term in match_terms):
-                try:
-                    total += float(item.get("value", 0) or 0)
-                except (TypeError, ValueError):
-                    continue
-        return total
 
     # === READ ===
 

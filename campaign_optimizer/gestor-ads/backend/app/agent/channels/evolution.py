@@ -30,33 +30,32 @@ class EvolutionAdapter:
         phone = remote_jid.split("@")[0]
 
         message = data.get("message", {})
-        text = message.get("conversation")
+        # WhatsApp sends extendedTextMessage for replies, quotes and links.
+        text = message.get("conversation") or message.get("extendedTextMessage", {}).get("text")
 
         location = None
         loc = message.get("locationMessage")
         if loc:
             location = (loc["degreesLatitude"], loc["degreesLongitude"])
 
-        audio_bytes = None
         audio_msg = message.get("audioMessage")
-        if audio_msg:
-            audio_bytes = await self.download_media(audio_msg.get("url", ""))
+        audio_ref = audio_msg.get("url", "") if audio_msg else None
 
         return IncomingMessage(
             channel="evolution",
             channel_user_id=phone,
             raw=payload,
             text=text,
-            audio_bytes=audio_bytes,
+            audio_ref=audio_ref,
             location=location,
         )
 
     async def download_media(self, file_ref: str) -> bytes:
         async with httpx.AsyncClient(timeout=30) as client:
-            resp = await client.get(
+            resp = await client.post(
                 f"{self._base_url}/chat/getBase64FromMediaMessage/{self._instance}",
                 headers={"apikey": self._api_key},
-                params={"url": file_ref},
+                json={"message": {"url": file_ref}},
             )
             b64 = resp.json().get("base64", "")
             return base64.b64decode(b64) if b64 else b""

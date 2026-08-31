@@ -34,16 +34,12 @@ class TelegramAdapter:
         if voice:
             audio_file_id = voice.get("file_id")
 
-        audio_bytes = None
-        if audio_file_id:
-            audio_bytes = await self.download_media(audio_file_id)
-
         return IncomingMessage(
             channel="telegram",
             channel_user_id=chat_id,
             raw=payload,
             text=message.get("text"),
-            audio_bytes=audio_bytes,
+            audio_ref=audio_file_id,
             location=location,
         )
 

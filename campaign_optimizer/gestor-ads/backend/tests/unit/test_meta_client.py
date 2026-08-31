@@ -7,7 +7,7 @@ import httpx
 import pytest
 import respx
 
-from app.meta.client import MetaAdsClient
+from app.meta.client import MetaAdsClient, extract_metric
 from app.meta.rate_limiter import RateLimiter
 from app.shared.exceptions import MetaAPIError, MetaRateLimitError
 
@@ -37,21 +37,21 @@ def test_extract_metric_finds_leads():
         {"action_type": "messaging_conversation_started", "value": "7"},
         {"action_type": "lead", "value": "3"},
     ]
-    result = MetaAdsClient._extract_metric(actions, ("messaging_conversation_started", "lead", "contact", "omni_lead"))
+    result = extract_metric(actions, ("messaging_conversation_started", "lead", "contact", "omni_lead"))
     assert result == 10.0
 
 
 def test_extract_metric_returns_zero_for_none():
-    assert MetaAdsClient._extract_metric(None, ("lead",)) == 0.0
+    assert extract_metric(None, ("lead",)) == 0.0
 
 
 def test_extract_metric_returns_zero_for_empty():
-    assert MetaAdsClient._extract_metric([], ("lead",)) == 0.0
+    assert extract_metric([], ("lead",)) == 0.0
 
 
 def test_extract_metric_handles_bad_value():
     actions = [{"action_type": "lead", "value": "not-a-number"}]
-    assert MetaAdsClient._extract_metric(actions, ("lead",)) == 0.0
+    assert extract_metric(actions, ("lead",)) == 0.0
 
 
 # --- _request ---

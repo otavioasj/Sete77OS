@@ -120,9 +120,13 @@ suficiente pra justificar, migrar pra uma fila persistente vira decisão de uma 
 
 ---
 
-## 3. Modelo de dados (novas tabelas)
+## 3. Modelo de dados (tabelas novas + reaproveitadas)
 
-Reaproveita `meta_connections`, `ad_accounts` e `audit_log` já existentes. Novas tabelas:
+Reaproveita `meta_connections`, `ad_accounts`, `audit_log` e **`profiles.nivel_tecnico`**
+(já existe desde a Fase 1 — um campo por usuário, não duplicamos por conversa). A tabela
+`campaign_drafts` **já existe** também (`migrations/001_initial_schema.sql`, colunas
+`owner_id`, `ad_account_id`, `payload` JSONB, `status`, `meta_campaign_id`, `erro_detalhes`)
+e é reaproveitada como está, só ganha uma coluna nova pra ligar com a conversa de origem.
 
 ```sql
 CREATE TABLE conversations (
@@ -131,7 +135,6 @@ CREATE TABLE conversations (
     ad_account_id UUID REFERENCES ad_accounts(id) ON DELETE SET NULL,
     channel TEXT NOT NULL CHECK (channel IN ('telegram', 'evolution', 'whatsapp_cloud')),
     channel_user_id TEXT NOT NULL,       -- chat_id (Telegram) ou telefone E.164 (WhatsApp)
-    nivel_tecnico TEXT CHECK (nivel_tecnico IN ('leigo', 'avancado')),
     resumo_memoria TEXT NOT NULL DEFAULT '',
     memoria_negocio JSONB NOT NULL DEFAULT '{}',  -- nicho, ticket, região, públicos, criativos
     criado_em TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -153,14 +156,14 @@ CREATE TABLE messages (
 );
 CREATE INDEX idx_messages_conversation ON messages (conversation_id, criado_em);
 
-CREATE TABLE campaign_drafts (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    conversation_id UUID NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
-    payload_json JSONB NOT NULL,   -- estratégia proposta: verba, período, público, objetivo
-    status TEXT NOT NULL DEFAULT 'rascunho' CHECK (status IN ('rascunho', 'aprovado', 'criado')),
-    criado_em TIMESTAMPTZ NOT NULL DEFAULT now()
-);
+-- campaign_drafts JÁ EXISTE — só adiciona a ligação com a conversa de origem.
+-- Continua nullable: drafts criados pelo dashboard web não têm conversation_id.
+ALTER TABLE campaign_drafts
+    ADD COLUMN IF NOT EXISTS conversation_id UUID REFERENCES conversations(id) ON DELETE SET NULL;
 ```
+
+Nível técnico do usuário mora em `profiles.nivel_tecnico` (`leigo`/`avancado`), atualizado no
+onboarding do chat igual seria pelo dashboard — um valor só, independente do canal.
 
 `conversations` é por **canal**, não por pessoa — o mesmo usuário pode falar pelo Telegram e
 pelo WhatsApp com `conversation_id` diferentes, ambos ligados ao mesmo `owner_id`/
@@ -216,7 +219,8 @@ Por mensagem recebida:
 2. Callback do OAuth (endpoint já existente, reaproveitado) salva a conexão e notifica a
    conversa certa com a lista de contas de anúncio encontradas.
 3. Usuário escolhe a conta por número ou nome — o agente desambigua quando há nomes parecidos.
-4. Agente pergunta o nível técnico (`leigo`/`avancado`) → grava em `conversations`.
+4. Agente pergunta o nível técnico (`leigo`/`avancado`) → grava em `profiles.nivel_tecnico`
+   (se já estiver preenchido de uma sessão anterior no dashboard web, pula essa pergunta).
 5. A partir daqui, criação de campanha segue o loop da Seção 4.
 
 ---

@@ -157,7 +157,7 @@ async def criar_campanha(ctx: ToolContext, meta_client: MetaAdsClient, *, draft_
     linked to this conversation isn't approved yet (spec §4, §7)."""
     draft = (
         ctx.supabase.table("campaign_drafts")
-        .select("id,status,payload")
+        .select("id,status,payload,conversation_id,ad_account_id")
         .eq("id", draft_id)
         .single()
         .execute()
@@ -166,6 +166,14 @@ async def criar_campanha(ctx: ToolContext, meta_client: MetaAdsClient, *, draft_
     if not draft or draft["status"] != "aprovado":
         raise DraftValidationError(
             "Essa campanha ainda não foi aprovada. Confirme a estratégia antes de eu criar."
+        )
+    if draft.get("conversation_id") != ctx.conversation_id:
+        raise DraftValidationError(
+            "Essa campanha não pertence a esta conversa. Não posso criar a partir daqui."
+        )
+    if ctx.ad_account_id is not None and draft.get("ad_account_id") != ctx.ad_account_id:
+        raise DraftValidationError(
+            "Essa campanha não pertence a esta conta de anúncio. Não posso criar a partir daqui."
         )
 
     payload = draft["payload"]

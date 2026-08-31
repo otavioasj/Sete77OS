@@ -116,6 +116,8 @@ async def test_criar_campanha_creates_when_approved(fake_supabase):
         "id": "draft-1",
         "status": "aprovado",
         "payload": {"marca": "Fortec", "objetivo": "trafego", "publico": "Fortaleza", "verba_diaria": 50.0},
+        "conversation_id": "conv-1",
+        "ad_account_id": "acc-1",
     }
     meta_client = AsyncMock()
     meta_client.create_campaign.return_value = {"id": "camp-123"}
@@ -124,6 +126,21 @@ async def test_criar_campanha_creates_when_approved(fake_supabase):
     assert result["meta_campaign_id"] == "camp-123"
     _, kwargs = meta_client.create_campaign.call_args
     assert kwargs.get("name", "").startswith("[Fortec]")
+
+
+async def test_criar_campanha_rejects_draft_from_other_conversation(fake_supabase):
+    fake_supabase.table.return_value.select.return_value.eq.return_value.single.return_value.execute.return_value.data = {
+        "id": "draft-1",
+        "status": "aprovado",
+        "payload": {"marca": "Fortec", "objetivo": "trafego", "publico": "Fortaleza", "verba_diaria": 50.0},
+        "conversation_id": "conv-OUTRA",
+        "ad_account_id": "acc-1",
+    }
+    meta_client = AsyncMock()
+    ctx = _ctx(fake_supabase, ad_account_id="acc-1")
+    with pytest.raises(DraftValidationError):
+        await criar_campanha(ctx, meta_client, draft_id="draft-1")
+    meta_client.create_campaign.assert_not_called()
 
 
 def test_localizacao_por_raio():

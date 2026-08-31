@@ -40,3 +40,20 @@ def test_get_settings_returns_instance():
 
     s = get_settings()
     assert hasattr(s, "supabase_url")
+
+
+def test_settings_have_agent_fields(monkeypatch):
+    from app.config import Settings
+
+    monkeypatch.setenv("TELEGRAM_BOT_TOKEN", "tg-token")
+    monkeypatch.setenv("EVOLUTION_BASE_URL", "http://evolution-go:8080")
+    monkeypatch.setenv("EVOLUTION_API_KEY", "evo-key")
+    monkeypatch.setenv("EVOLUTION_INSTANCE", "creative-ads")
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+
+    settings = Settings()
+    assert settings.telegram_bot_token == "tg-token"
+    assert settings.evolution_base_url == "http://evolution-go:8080"
+    assert settings.evolution_api_key == "evo-key"
+    assert settings.evolution_instance == "creative-ads"
+    assert settings.openai_api_key == "sk-test"

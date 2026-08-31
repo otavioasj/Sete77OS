@@ -24,6 +24,17 @@ class Settings(BaseSettings):
     anthropic_api_key: str = ""
     anthropic_workspace_id: str = ""
 
+    # Agent — Telegram
+    telegram_bot_token: str = ""
+
+    # Agent — Evolution API (WhatsApp via QR, experimental channel)
+    evolution_base_url: str = ""
+    evolution_api_key: str = ""
+    evolution_instance: str = ""
+
+    # Agent — Whisper (audio transcription)
+    openai_api_key: str = ""
+
     # Email (SMTP) — used for automation notifications. Left blank, sending
     # is skipped silently (logged) until configured.
     smtp_host: str = "smtp.gmail.com"

@@ -4,9 +4,10 @@ Sua empresa roda em cima desse arquivo. Aqui ficam as regras de operação
 do Sete77OS — como o agente lê o contexto, aprende com correções, mantém
 tudo atualizado e cria skills novas conforme a operação evolui.
 
-**Este arquivo vale pra qualquer agente.** `CLAUDE.md` e `AGENTS.md` são o
-mesmo arquivo: o Claude Code lê um, o Codex lê o outro, e os dois apontam
-pro mesmo conteúdo. Editar um é editar o outro.
+**Este arquivo vale pra qualquer agente.** O `CLAUDE.md` é só um ponteiro
+que manda ler este aqui. As regras moram todas neste arquivo — nunca
+escreva regra no `CLAUDE.md`, senão os agentes passam a receber instruções
+diferentes.
 
 Esse arquivo é editável. Quando o `/instalar` rodar, ele complementa o
 final dessa página com as regras específicas do seu negócio.
@@ -32,9 +33,10 @@ projeto**, num lugar só:
 for aprendido numa conversa do Codex tem que estar visível pro Claude na
 conversa seguinte, e vice-versa. Se está no projeto, está compartilhado.
 
-As pastas `.claude/skills/` e `~/.codex/skills/<skill>` são **atalhos**
-(symlinks) pra `skills/`. Editar por qualquer um dos caminhos altera o
-mesmo arquivo. Não existe cópia pra sincronizar.
+As pastas `.claude/skills/` e `~/.codex/skills/<skill>` são **atalhos** pra
+`skills/`, criados por `scripts/conectar.sh` (macOS/Linux) ou
+`scripts/conectar.ps1` (Windows). Editar por qualquer um dos caminhos
+altera o mesmo arquivo. Não existe cópia pra sincronizar.
 
 ---
 
@@ -182,9 +184,9 @@ Quando o usuário pedir skill nova:
 
 - `skills/` — **o lugar das skills**. Uma pasta por skill, com `SKILL.md`.
 - `.claude/skills` — atalho pra `skills/`. É onde o Claude Code procura.
-- `~/.codex/skills/<skill>` — atalhos pra cá, criados por
-  `scripts/conectar-codex.sh`. É onde o Codex procura.
-- `CLAUDE.md` / `AGENTS.md` — o mesmo arquivo, por dois nomes.
+  Não vai versionado (cada sistema operacional cria o seu).
+- `~/.codex/skills/<skill>` — atalhos pra cá. É onde o Codex procura.
+- `AGENTS.md` — as regras. `CLAUDE.md` é um ponteiro pra ele.
 
 Claude Code e Codex usam **o mesmo formato de skill**: uma pasta com um
 `SKILL.md` que traz `name` e `description` no frontmatter. Por isso a
@@ -192,18 +194,26 @@ mesma pasta serve aos dois, sem conversão.
 
 ---
 
-## Ligando o Codex
+## Conectando os agentes
 
-O Claude Code já enxerga as skills assim que você abre o projeto. O Codex
-procura numa pasta global (`$CODEX_HOME/skills`, padrão `~/.codex/skills`),
-então precisa de um passo, uma vez por projeto:
+Depois de clonar, rode uma vez:
 
 ```bash
-./scripts/conectar-codex.sh
+./scripts/conectar.sh          # macOS e Linux
+```
+```powershell
+.\scripts\conectar.ps1        # Windows
 ```
 
-Isso cria os atalhos. Depois disso, skill criada ou editada em qualquer um
-dos dois aparece nos dois.
+Isso cria os atalhos das duas pastas. A partir daí, skill criada ou editada
+em qualquer um dos agentes aparece nos dois.
+
+No Windows o script usa *junction*, que **não exige Modo Desenvolvedor nem
+admin**. Cada atalho é verificado depois de criado: se o sistema de arquivos
+não aceitar link (rede, pendrive), o script para e manda usar `-Copiar`.
+
+Pra desfazer: `--desligar` (ou `-Desligar` no Windows). As skills continuam
+em `skills/` — nada se perde.
 
 Independente disso, o Codex lê este arquivo ao abrir o projeto, então as
 skills já funcionam por intenção ("faz um carrossel") mesmo sem conectar.

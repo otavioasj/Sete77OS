@@ -57,26 +57,32 @@ copiado**: as pastas que cada agente procura são atalhos pro mesmo lugar.
 | O que muda | Onde mora de verdade |
 |---|---|
 | Contexto do negócio | `_memoria/*.md` |
-| Regras de operação | `AGENTS.md` (o `CLAUDE.md` é atalho pra ele) |
+| Regras de operação | `AGENTS.md` (o `CLAUDE.md` aponta pra ele) |
 | Skills | `skills/` (o `.claude/skills` é atalho pra ela) |
 | Entregas | `saidas/`, `dados/`, `clientes/` |
 
 Aprendeu algo numa conversa do Codex? Na próxima conversa do Claude já está
 lá. Criou uma skill pelo Claude? O Codex enxerga na hora.
 
-O Claude Code funciona assim que você abre o projeto. O Codex procura skills
-numa pasta global, então precisa de um passo — **uma vez por projeto**:
+Depois de clonar, rode uma vez — **funciona igual nos três sistemas**:
 
-```bash
-./scripts/conectar-codex.sh
+**Windows**
+```powershell
+.\scripts\conectar.ps1
 ```
 
-Pra desfazer: `./scripts/conectar-codex.sh --desligar`.
+**macOS e Linux**
+```bash
+./scripts/conectar.sh
+```
 
-> **Windows:** o sistema usa links simbólicos. Ative o Modo Desenvolvedor e
-> rode `git config --global core.symlinks true` **antes** de clonar. Se
-> preferir não usar links, `./scripts/conectar-codex.sh --copiar` funciona,
-> mas aí vira cópia e você perde a sincronia automática.
+Não precisa de Modo Desenvolvedor, nem de admin, nem de configurar o git: no
+Windows o script usa *junction*, que qualquer conta cria. E cada atalho é
+conferido depois de criado — se o sistema de arquivos não aceitar link
+(pasta de rede, pendrive), o script avisa e te manda pro modo `-Copiar`, em
+vez de fingir que deu certo.
+
+Pra desfazer: `-Desligar` (Windows) ou `--desligar` (macOS/Linux).
 
 ---
 

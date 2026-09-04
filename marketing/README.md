@@ -1,6 +1,6 @@
-# marketing/ — saídas do MazyOS
+# marketing/ — saídas do Sete77OS
 
-Tudo que as skills de marketing produzem cai aqui. Skills do MazyOS já sabem onde salvar — você raramente precisa criar pasta manualmente.
+Tudo que as skills de marketing produzem cai aqui. Skills do Sete77OS já sabem onde salvar — você raramente precisa criar pasta manualmente.
 
 ## Estrutura padrão
 

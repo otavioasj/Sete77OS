@@ -45,11 +45,15 @@ não só pro Claude.
 
 - `skills/` — **fonte única**. É aqui que se edita e se cria skill.
 - `.claude/skills/` — cópia gerada, é onde o Claude Code procura.
-- `.codex/prompts/` — cópia gerada, um `.md` por skill, sem o frontmatter YAML.
-- `scripts/sincronizar-skills.sh` — regenera as duas cópias a partir de `skills/`.
+- `scripts/sincronizar-skills.sh` — regenera a cópia do Claude a partir de `skills/`.
+- `scripts/instalar-no-codex.sh` — instala as skills no Codex.
 
-**Nunca edite `.claude/skills/` ou `.codex/prompts/` na mão** — a alteração se perde na
-próxima sincronização. Edite `skills/` e rode:
+Claude Code e Codex usam **o mesmo formato**: uma pasta por skill com um `SKILL.md`
+que tem `name` e `description` no frontmatter. Por isso `skills/` serve aos dois sem
+conversão — muda só onde cada um procura.
+
+**Nunca edite `.claude/skills/` na mão** — a alteração se perde na próxima
+sincronização. Edite `skills/` e rode:
 
 ```bash
 ./scripts/sincronizar-skills.sh
@@ -60,14 +64,15 @@ próxima sincronização. Edite `skills/` e rode:
 Duas skills de conteúdo trazem `{{MARCA}}`, `{{MARCA_CURTA}}`, `{{HANDLE}}` e `{{SITE}}`
 no lugar dos dados da marca. O `/instalar` preenche. Ver `PLACEHOLDERS.md`.
 
-## Nota sobre o Codex
+## Codex
 
-O Codex lê este `AGENTS.md` sozinho ao abrir o projeto — só com ele as skills já
-funcionam por intenção ("faz um carrossel").
-
-Pra chamar por barra (`/carrossel`) no Codex, os prompts precisam estar na pasta
-de prompts do usuário:
+O Codex procura skills em `$CODEX_HOME/skills` (padrão `~/.codex/skills`), não dentro
+do projeto. Pra instalar as deste projeto:
 
 ```bash
-mkdir -p ~/.codex/prompts && cp .codex/prompts/*.md ~/.codex/prompts/
+./scripts/instalar-no-codex.sh
 ```
+
+Ficam disponíveis no turno seguinte. Independente disso, o Codex lê este `AGENTS.md`
+ao abrir o projeto, então as skills já funcionam por intenção ("faz um carrossel")
+mesmo antes de instalar.

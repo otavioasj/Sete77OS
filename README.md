@@ -50,26 +50,25 @@ memória e configura o sistema. Depois disso, é só usar.
 
 ## Claude ou Codex
 
-O Sete77OS não amarra você a um agente. As skills ficam em `skills/`, e daí
-saem duas cópias geradas:
+O Sete77OS não amarra você a um agente. Os dois usam o mesmo formato de skill —
+uma pasta com um `SKILL.md` — então a mesma pasta `skills/` serve aos dois. Muda
+só onde cada um procura.
 
-| Pasta | Pra quem |
-|---|---|
-| `.claude/skills/` | Claude Code |
-| `.codex/prompts/` | Codex |
-
-O `AGENTS.md` na raiz é o índice que qualquer agente lê ao abrir o projeto.
-No Codex, pra chamar as skills por barra (`/carrossel`), copie os prompts uma vez:
-
-```bash
-mkdir -p ~/.codex/prompts && cp .codex/prompts/*.md ~/.codex/prompts/
-```
-
-Criou ou editou skill? Edite sempre em `skills/` e rode:
+**Claude Code** procura em `.claude/skills/`, dentro do projeto:
 
 ```bash
 ./scripts/sincronizar-skills.sh
 ```
+
+**Codex** procura em `~/.codex/skills/`, fora do projeto:
+
+```bash
+./scripts/instalar-no-codex.sh
+```
+
+O `AGENTS.md` na raiz é o índice que qualquer agente lê ao abrir o projeto.
+
+Criou ou editou skill? Edite sempre em `skills/` e rode os scripts de novo.
 
 ---
 

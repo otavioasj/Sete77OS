@@ -36,9 +36,9 @@ Antes de executar qualquer tarefa, verificar se existe skill relevante
 em `skills/`. Se encontrar, seguir as instruções da skill. Se
 não encontrar, executar a tarefa normalmente.
 
-`skills/` é a **fonte única**. As pastas `.claude/skills/` e `.codex/prompts/`
-são cópias geradas por `scripts/sincronizar-skills.sh` — nunca editar direto
-nelas. Depois de criar ou alterar uma skill, rodar o script pra sincronizar.
+`skills/` é a **fonte única**. A pasta `.claude/skills/` é cópia gerada por
+`scripts/sincronizar-skills.sh` — nunca editar direto nela. Depois de criar
+ou alterar uma skill, rodar o script pra sincronizar.
 
 Ao concluir uma tarefa que não tinha skill mas parece repetível (o
 usuário provavelmente vai pedir de novo no futuro), perguntar:
@@ -117,5 +117,5 @@ Quando o usuário pedir skill nova:
 4. Se a skill precisar de arquivos de apoio (templates, exemplos),
    criar dentro da pasta da skill
 5. Seguir o fluxo da skill-creator nativa do Claude Code
-6. Rodar `./scripts/sincronizar-skills.sh` pra a skill nova aparecer
-   também pro Codex
+6. Rodar `./scripts/sincronizar-skills.sh` pra a skill nova chegar no
+   Claude Code, e `./scripts/instalar-no-codex.sh` pra chegar no Codex

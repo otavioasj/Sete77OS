@@ -1,10 +1,10 @@
 # Sete77OS
 
-> O sistema operacional do seu negócio dentro do Claude Code.
+> O sistema operacional do seu negócio dentro do seu agente de terminal.
 
 Você acaba de instalar o Sete77OS. Em alguns minutos, sua empresa vai
 ter uma memória própria, uma identidade visual aplicada em tudo que
-o sistema gerar, e 15 skills prontas pra fazer marketing, SEO, ads
+o sistema gerar, e 20 skills prontas pra fazer marketing, SEO, ads
 e operação rodarem com você dirigindo.
 
 Bora voar.
@@ -45,6 +45,31 @@ pasta não fica como "Sete77OS" — ela é o teu negócio agora.
 
 O `/instalar` roda uma vez só. Te entrevista sobre o negócio, monta a
 memória e configura o sistema. Depois disso, é só usar.
+
+---
+
+## Claude ou Codex
+
+O Sete77OS não amarra você a um agente. As skills ficam em `skills/`, e daí
+saem duas cópias geradas:
+
+| Pasta | Pra quem |
+|---|---|
+| `.claude/skills/` | Claude Code |
+| `.codex/prompts/` | Codex |
+
+O `AGENTS.md` na raiz é o índice que qualquer agente lê ao abrir o projeto.
+No Codex, pra chamar as skills por barra (`/carrossel`), copie os prompts uma vez:
+
+```bash
+mkdir -p ~/.codex/prompts && cp .codex/prompts/*.md ~/.codex/prompts/
+```
+
+Criou ou editou skill? Edite sempre em `skills/` e rode:
+
+```bash
+./scripts/sincronizar-skills.sh
+```
 
 ---
 

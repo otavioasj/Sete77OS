@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@600;700;800;900&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0A0A0C;
+    --bg-card: #131316;
+    --border: rgba(255,255,255,0.08);
+    --text: #F4F5F7;
+    --text-secondary: #A1A5AC;
+    --text-tertiary: #787E85;
+    --accent: #F5A524;
+    --on-accent: #0A0A0C;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'IBM Plex Sans', sans-serif; }
+  .slide {
+    width: 1080px; height: 1350px; position: relative;
+    display: flex; flex-direction: column; justify-content: space-between;
+    padding: 80px 90px; overflow: hidden;
+  }
+  .dark { background: var(--bg); color: var(--text); }
+  .accent-bg { background: var(--accent); color: var(--on-accent); }
+  /* Capa da série de IA / GitHub da Semana. Prata do "77" do logo. */
+  .prata-bg {
+    background: linear-gradient(135deg, #FFFFFF 0%, #C6CBD1 45%, #9BA1A8 100%);
+    color: var(--on-accent);
+  }
+  .prata-bg .logo-mark, .prata-bg h1, .prata-bg h2 { color: var(--on-accent); }
+  .prata-bg .counter { color: rgba(10,10,12,0.5); }
+  .prata-bg p.body { color: rgba(10,10,12,0.75); }
+  .prata-bg .rule { background: var(--on-accent); opacity: 0.45; }
+  .prata-bg .footer { border-top: 1px solid rgba(10,10,12,0.15); }
+  .prata-bg .handle { color: rgba(10,10,12,0.7); }
+
+  .topbar { display: flex; justify-content: space-between; align-items: center; }
+  .logo-mark { font-family: 'Archivo', sans-serif; font-weight: 900; font-size: 22px; letter-spacing: -0.02em; }
+  .dark .logo-mark { color: var(--text); }
+  .accent-bg .logo-mark { color: var(--on-accent); }
+  .counter { font-family: 'JetBrains Mono', monospace; font-weight: 500; font-size: 15px; letter-spacing: 0.18em; color: var(--text-tertiary); }
+  .accent-bg .counter { color: rgba(10,10,12,0.55); }
+
+  /* Selo da série: assinatura visual do Prompt do Dia */
+  .serie {
+    position: absolute; top: 0; left: 0;
+    background: var(--accent); color: var(--on-accent);
+    font-family: 'JetBrains Mono', monospace; font-size: 17px; font-weight: 500;
+    letter-spacing: 0.16em; text-transform: uppercase;
+    padding: 14px 34px; border-bottom-right-radius: 18px;
+  }
+  /* Na capa âmbar o selo inverte, senão some no fundo */
+  .serie-invertido { background: var(--on-accent); color: var(--accent); }
+
+  .eyebrow { font-family: 'JetBrains Mono', monospace; font-weight: 500; font-size: 15px; text-transform: uppercase; letter-spacing: 0.24em; color: var(--accent); margin-bottom: 28px; }
+  .accent-bg .eyebrow { color: var(--on-accent); opacity: 0.7; }
+
+  .rule { width: 70px; height: 4px; background: var(--accent); border-radius: 999px; margin: 28px 0; }
+  .accent-bg .rule { background: var(--on-accent); opacity: 0.5; }
+
+  h1 { font-family: 'Archivo', sans-serif; font-weight: 900; font-size: 84px; line-height: 1.0; letter-spacing: -0.04em; }
+  h2 { font-family: 'Archivo', sans-serif; font-weight: 800; font-size: 60px; line-height: 1.08; letter-spacing: -0.035em; }
+  p.body { font-size: 30px; font-weight: 500; line-height: 1.5; color: var(--text-secondary); max-width: 830px; }
+  .accent-bg p.body { color: rgba(10,10,12,0.75); }
+
+  .content { display: flex; flex-direction: column; }
+  .footer { display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border); padding-top: 28px; }
+  .accent-bg .footer { border-top: 1px solid rgba(10,10,12,0.15); }
+  .handle { font-weight: 600; font-size: 18px; color: var(--text-secondary); }
+  .accent-bg .handle { color: rgba(10,10,12,0.7); }
+
+  /* O bloco do prompt: coração da série */
+  .prompt-box {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-left: 5px solid var(--accent);
+    border-radius: 18px;
+    padding: 44px 46px;
+    margin-top: 34px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 25px;
+    font-weight: 400;
+    line-height: 1.62;
+    color: var(--text);
+    white-space: pre-wrap;
+  }
+  .prompt-box .campo { color: var(--accent); }
+
+  .saida {
+    background: var(--bg-card); border: 1px solid var(--border);
+    border-radius: 18px; padding: 40px 44px; margin-top: 34px;
+    font-size: 27px; line-height: 1.55; color: var(--text-secondary);
+  }
+
+  .actions { display: flex; gap: 16px; margin-top: 48px; flex-wrap: wrap; }
+  .action {
+    font-family: 'JetBrains Mono', monospace; font-size: 24px;
+    letter-spacing: 0.04em; color: var(--on-accent);
+    border: 2px solid rgba(10,10,12,0.35); border-radius: 999px;
+    padding: 16px 30px;
+  }
+  .bio-note {
+    display: flex; align-items: center; gap: 16px;
+    margin-top: 34px; font-size: 26px; font-weight: 600; color: var(--on-accent);
+  }
+  .bio-note .arrow { font-size: 30px; opacity: 0.5; }
+  .final-logo { font-family: 'Archivo', sans-serif; font-weight: 900; font-size: 34px; letter-spacing: -0.02em; color: var(--on-accent); }
+</style>
+</head>
+<body>
+
+<!-- SLIDE 1 — CAPA: âmbar, cor fixa da série (ver identidade/design-guide.md).
+     Só a capa é colorida; os slides internos seguem escuros. -->
+<div class="slide accent-bg">
+  <span class="serie serie-invertido">Prompt do dia</span>
+  <div class="topbar"><span class="logo-mark">{{MARCA_CURTA}}</span><span class="counter">01 / 05</span></div>
+  <div class="content">
+    <h1 style="color: var(--on-accent);">[A promessa: cole isso no Claude e ele FAZ TAL COISA.]</h1>
+    <div class="rule"></div>
+    <p class="body">[Uma linha dizendo pra quem serve.]</p>
+  </div>
+  <div class="footer"><span class="handle">{{HANDLE}}</span><span class="handle">{{SITE}}</span></div>
+</div>
+
+<!-- SLIDE 2 — O PROBLEMA: a tarefa manual que isso substitui -->
+<div class="slide dark">
+  <div class="topbar"><span class="logo-mark">{{MARCA_CURTA}}</span><span class="counter">02 / 05</span></div>
+  <div class="content">
+    <span class="eyebrow">O problema</span>
+    <h2>[A tarefa que hoje alguém faz na mão.]</h2>
+    <div class="rule"></div>
+    <p class="body">[O que custa deixar isso do jeito que está.]</p>
+  </div>
+  <div class="footer"><span class="handle">{{HANDLE}}</span><span class="handle">{{SITE}}</span></div>
+</div>
+
+<!-- SLIDE 3 — O PROMPT: nunca resumir, nunca cortar com reticências -->
+<div class="slide dark">
+  <div class="topbar"><span class="logo-mark">{{MARCA_CURTA}}</span><span class="counter">03 / 05</span></div>
+  <div class="content">
+    <span class="eyebrow">Copia daqui</span>
+    <div class="prompt-box">[O prompt inteiro, com os campos a preencher entre <span class="campo">[colchetes]</span>.]</div>
+  </div>
+  <div class="footer"><span class="handle">{{HANDLE}}</span><span class="handle">{{SITE}}</span></div>
+</div>
+
+<!-- SLIDE 4 — O QUE SAI: exemplo curto e real -->
+<div class="slide dark">
+  <div class="topbar"><span class="logo-mark">{{MARCA_CURTA}}</span><span class="counter">04 / 05</span></div>
+  <div class="content">
+    <span class="eyebrow">Exemplo do que sai</span>
+    <h2 style="font-size: 46px;">[Contexto curto do exemplo.]</h2>
+    <div class="saida">[A resposta que o prompt gerou.]</div>
+  </div>
+  <div class="footer"><span class="handle">{{HANDLE}}</span><span class="handle">{{SITE}}</span></div>
+</div>
+
+<!-- SLIDE 5 — FECHO: engajamento nativo + ponte pra oferta -->
+<div class="slide accent-bg">
+  <div class="topbar"><span class="logo-mark">{{MARCA_CURTA}}</span><span class="counter">05 / 05</span></div>
+  <div class="content" style="align-items: flex-start;">
+    <span class="final-logo">{{MARCA}}</span>
+    <div class="rule"></div>
+    <h2 style="color: var(--on-accent); margin-top: 10px;">Essa é a versão de bolso.</h2>
+    <p class="body" style="margin-top: 24px;">O que a gente instala roda sozinho, dentro do seu processo, sem ninguém precisar lembrar de colar nada.</p>
+    <div class="actions">
+      <span class="action">Curte</span>
+      <span class="action">Salva</span>
+      <span class="action">Compartilha</span>
+    </div>
+    <div class="bio-note"><span class="arrow">&#8593;</span>Pra falar com a gente, o link está na bio.</div>
+  </div>
+  <div class="footer"><span class="handle">{{HANDLE}}</span><span class="handle">{{SITE}}</span></div>
+</div>
+
+</body>
+</html>

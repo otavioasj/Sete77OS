@@ -1,20 +1,155 @@
-# Instruções do agente — Sete77OS
+# Sete77OS — Sistema operacional do negócio
 
-O Sete77OS funciona com **qualquer agente de terminal** — Claude Code, Codex ou outro.
-As instruções de trabalho ficam em `skills/`, uma pasta por skill, cada uma com um `SKILL.md`.
+Sua empresa roda em cima desse arquivo. Aqui ficam as regras de operação
+do Sete77OS — como o agente lê o contexto, aprende com correções, mantém
+tudo atualizado e cria skills novas conforme a operação evolui.
 
-## Como usar uma skill
+**Este arquivo vale pra qualquer agente.** `CLAUDE.md` e `AGENTS.md` são o
+mesmo arquivo: o Claude Code lê um, o Codex lê o outro, e os dois apontam
+pro mesmo conteúdo. Editar um é editar o outro.
 
-Quando o usuário pedir algo que corresponda a uma skill da tabela abaixo — pelo nome
-(`/carrossel`) ou pela intenção ("faz um post pro Instagram") — **leia o `SKILL.md`
-correspondente antes de agir** e siga o que está escrito lá. Se não houver skill pra
-tarefa, execute normalmente.
+Esse arquivo é editável. Quando o `/instalar` rodar, ele complementa o
+final dessa página com as regras específicas do seu negócio.
 
-Antes de qualquer tarefa, carregue o contexto do negócio de `_memoria/` (`empresa.md`,
-`preferencias.md`, `estrategia.md`) e, pra tarefa visual, de `identidade/design-guide.md`.
+---
 
-As regras de operação completas estão no `CLAUDE.md` — valem pra qualquer agente,
-não só pro Claude.
+## Um só lugar pra tudo
+
+Você pode usar Claude Code, Codex, ou os dois ao mesmo tempo no mesmo
+projeto. Pra o contexto não se partir, **tudo que muda mora dentro do
+projeto**, num lugar só:
+
+| O que muda | Onde mora | Vale pros dois? |
+|---|---|---|
+| Contexto do negócio | `_memoria/*.md` | sim |
+| Identidade visual | `identidade/design-guide.md` | sim |
+| Regras de operação | este arquivo | sim |
+| Skills | `skills/` | sim |
+| Entregas e dados | `saidas/`, `dados/`, `clientes/` | sim |
+
+**Nunca salve contexto na memória particular do agente** — nem no
+`~/.claude/`, nem no `~/.codex/`, nem em memória interna de sessão. O que
+for aprendido numa conversa do Codex tem que estar visível pro Claude na
+conversa seguinte, e vice-versa. Se está no projeto, está compartilhado.
+
+As pastas `.claude/skills/` e `~/.codex/skills/<skill>` são **atalhos**
+(symlinks) pra `skills/`. Editar por qualquer um dos caminhos altera o
+mesmo arquivo. Não existe cópia pra sincronizar.
+
+---
+
+## Contexto do negócio
+
+No início de toda conversa, ler os seguintes arquivos (quando existirem
+e estiverem preenchidos):
+
+1. `_memoria/empresa.md` — quem é o usuário, o que faz, como funciona o negócio
+2. `_memoria/preferencias.md` — tom de voz, estilo de escrita, o que evitar
+3. `_memoria/estrategia.md` — foco atual, prioridades, prazos
+
+Usar essas informações como base pra qualquer resposta ou decisão. Ao
+sugerir prioridades, formatos ou abordagens, considerar o foco atual
+descrito em `estrategia.md`.
+
+Pra qualquer tarefa visual (carrossel, post, landing page), consultar
+`identidade/design-guide.md` como referência de estilo.
+
+Não é necessário listar o que foi lido nem confirmar a leitura. Apenas
+usar o contexto naturalmente.
+
+---
+
+## Fluxo de trabalho
+
+Antes de executar qualquer tarefa, verificar se existe skill relevante
+em `skills/`. Se encontrar, seguir as instruções da skill. Se
+não encontrar, executar a tarefa normalmente.
+
+`skills/` é a **fonte única**. A pasta `.claude/skills/` é cópia gerada por
+`scripts/sincronizar-skills.sh` — nunca editar direto nela. Depois de criar
+ou alterar uma skill, rodar o script pra sincronizar.
+
+Ao concluir uma tarefa que não tinha skill mas parece repetível (o
+usuário provavelmente vai pedir de novo no futuro), perguntar:
+
+> "Isso pode virar uma skill pra próxima vez. Quer que eu crie?"
+
+Não perguntar pra tarefas pontuais ou perguntas simples. Só quando o
+padrão de repetição for claro.
+
+---
+
+## Aprender com correções
+
+Quando o usuário corrigir algo, melhorar uma resposta ou dar uma
+instrução que parece permanente (frases como "na verdade é assim", "não
+faça mais isso", "prefiro assim", "sempre que...", "evita...", "da
+próxima vez..."), perguntar:
+
+> "Quer que eu salve isso pra não precisar repetir?"
+
+Se sim, identificar onde faz mais sentido salvar:
+
+- **Sobre o negócio** (clientes, serviços, mercado) → `_memoria/empresa.md`
+- **Sobre preferências e estilo** (tom de voz, formato, o que evitar) → `_memoria/preferencias.md`
+- **Sobre prioridades e foco** (projetos, metas, prazos) → `_memoria/estrategia.md`
+- **Regra de comportamento nessa pasta** → próprio `CLAUDE.md`
+
+Salvar com uma linha nova clara, sem reformatar o arquivo inteiro.
+Confirmar mostrando a linha adicionada.
+
+Não perguntar se a correção for óbvia de contexto imediato (ex: "na
+verdade o arquivo se chama X"). Só perguntar quando a informação tiver
+valor duradouro.
+
+---
+
+## Manter contexto atualizado
+
+Ao terminar uma tarefa que mudou algo relevante (cliente novo, skill
+nova, mudança de foco, processo novo, ferramenta instalada, estrutura
+alterada), perguntar:
+
+> "Isso mudou algo no teu contexto. Quer que eu atualize a memória?"
+
+Se sim, identificar o que atualizar:
+
+- **Cliente, serviço, ferramenta, equipe** → `_memoria/empresa.md`
+- **Mudança de prioridade ou foco** → `_memoria/estrategia.md`
+- **Tom ou estilo** → `_memoria/preferencias.md`
+- **Pasta, regra de organização, skill criada** → `CLAUDE.md`
+- **Visual (cores, fontes, logo)** → `identidade/design-guide.md`
+
+Mostrar o que vai mudar antes de salvar. Não reformatar o arquivo
+inteiro, só adicionar ou editar a linha relevante.
+
+**Quando NÃO perguntar:**
+- Tarefas pontuais sem impacto no contexto (escrever um email avulso, criar um post)
+- Perguntas simples ou conversas sem ação
+- Mudanças já salvas pelo bloco "Aprender com correções"
+
+**Dica:** rode `/atualizar` pra uma varredura completa quando houver dúvida.
+
+---
+
+## Criação de skills
+
+Quando o usuário pedir skill nova:
+
+1. Verificar se existe template relevante em `templates/skills/`. Se
+   existir, usar como base e adaptar pro contexto
+2. Perguntar se é específica desse projeto ou útil em qualquer:
+   - Específica → `skills/nome-da-skill/SKILL.md` (dentro do projeto)
+   - Universal → a pasta global do agente em uso
+3. Ler `_memoria/empresa.md` e `_memoria/preferencias.md` pra calibrar
+   o conteúdo da skill ao contexto do negócio
+4. Se a skill precisar de arquivos de apoio (templates, exemplos),
+   criar dentro da pasta da skill
+5. Criar direto em `skills/` — não em `.claude/skills/` nem em
+   `~/.codex/skills/`, que são atalhos pra cá. A skill nova aparece
+   nos dois agentes sem passo extra
+
+---
 
 ## Skills disponíveis
 
@@ -41,38 +176,42 @@ não só pro Claude.
 | `/seo` | Fluxo completo de SEO, GEO e Google Ads em 8 passos: pesquisa de demanda, análise de concorrência, Google Meu Negócio, otimização on-page,... |
 | `/setup-matt-pocock-skills` | Configure this repo for the engineering skills: set up its issue tracker, triage label vocabulary, and domain doc layout. Run once before first... |
 
+---
+
 ## Estrutura
 
-- `skills/` — **fonte única**. É aqui que se edita e se cria skill.
-- `.claude/skills/` — cópia gerada, é onde o Claude Code procura.
-- `scripts/sincronizar-skills.sh` — regenera a cópia do Claude a partir de `skills/`.
-- `scripts/instalar-no-codex.sh` — instala as skills no Codex.
+- `skills/` — **o lugar das skills**. Uma pasta por skill, com `SKILL.md`.
+- `.claude/skills` — atalho pra `skills/`. É onde o Claude Code procura.
+- `~/.codex/skills/<skill>` — atalhos pra cá, criados por
+  `scripts/conectar-codex.sh`. É onde o Codex procura.
+- `CLAUDE.md` / `AGENTS.md` — o mesmo arquivo, por dois nomes.
 
-Claude Code e Codex usam **o mesmo formato**: uma pasta por skill com um `SKILL.md`
-que tem `name` e `description` no frontmatter. Por isso `skills/` serve aos dois sem
-conversão — muda só onde cada um procura.
+Claude Code e Codex usam **o mesmo formato de skill**: uma pasta com um
+`SKILL.md` que traz `name` e `description` no frontmatter. Por isso a
+mesma pasta serve aos dois, sem conversão.
 
-**Nunca edite `.claude/skills/` na mão** — a alteração se perde na próxima
-sincronização. Edite `skills/` e rode:
+---
+
+## Ligando o Codex
+
+O Claude Code já enxerga as skills assim que você abre o projeto. O Codex
+procura numa pasta global (`$CODEX_HOME/skills`, padrão `~/.codex/skills`),
+então precisa de um passo, uma vez por projeto:
 
 ```bash
-./scripts/sincronizar-skills.sh
+./scripts/conectar-codex.sh
 ```
+
+Isso cria os atalhos. Depois disso, skill criada ou editada em qualquer um
+dos dois aparece nos dois.
+
+Independente disso, o Codex lê este arquivo ao abrir o projeto, então as
+skills já funcionam por intenção ("faz um carrossel") mesmo sem conectar.
+
+---
 
 ## Placeholders
 
-Duas skills de conteúdo trazem `{{MARCA}}`, `{{MARCA_CURTA}}`, `{{HANDLE}}` e `{{SITE}}`
-no lugar dos dados da marca. O `/instalar` preenche. Ver `PLACEHOLDERS.md`.
-
-## Codex
-
-O Codex procura skills em `$CODEX_HOME/skills` (padrão `~/.codex/skills`), não dentro
-do projeto. Pra instalar as deste projeto:
-
-```bash
-./scripts/instalar-no-codex.sh
-```
-
-Ficam disponíveis no turno seguinte. Independente disso, o Codex lê este `AGENTS.md`
-ao abrir o projeto, então as skills já funcionam por intenção ("faz um carrossel")
-mesmo antes de instalar.
+Duas skills de conteúdo trazem `{{MARCA}}`, `{{MARCA_CURTA}}`, `{{HANDLE}}` e
+`{{SITE}}` no lugar dos dados da marca. O `/instalar` preenche. Ver
+`PLACEHOLDERS.md`.

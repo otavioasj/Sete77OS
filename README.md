@@ -48,27 +48,35 @@ memória e configura o sistema. Depois disso, é só usar.
 
 ---
 
-## Claude ou Codex
+## Claude ou Codex — ou os dois
 
-O Sete77OS não amarra você a um agente. Os dois usam o mesmo formato de skill —
-uma pasta com um `SKILL.md` — então a mesma pasta `skills/` serve aos dois. Muda
-só onde cada um procura.
+Você pode rodar Claude Code e Codex no mesmo projeto, ao mesmo tempo, em
+janelas diferentes do VS Code. O contexto não se parte, porque **nada é
+copiado**: as pastas que cada agente procura são atalhos pro mesmo lugar.
 
-**Claude Code** procura em `.claude/skills/`, dentro do projeto:
+| O que muda | Onde mora de verdade |
+|---|---|
+| Contexto do negócio | `_memoria/*.md` |
+| Regras de operação | `AGENTS.md` (o `CLAUDE.md` é atalho pra ele) |
+| Skills | `skills/` (o `.claude/skills` é atalho pra ela) |
+| Entregas | `saidas/`, `dados/`, `clientes/` |
+
+Aprendeu algo numa conversa do Codex? Na próxima conversa do Claude já está
+lá. Criou uma skill pelo Claude? O Codex enxerga na hora.
+
+O Claude Code funciona assim que você abre o projeto. O Codex procura skills
+numa pasta global, então precisa de um passo — **uma vez por projeto**:
 
 ```bash
-./scripts/sincronizar-skills.sh
+./scripts/conectar-codex.sh
 ```
 
-**Codex** procura em `~/.codex/skills/`, fora do projeto:
+Pra desfazer: `./scripts/conectar-codex.sh --desligar`.
 
-```bash
-./scripts/instalar-no-codex.sh
-```
-
-O `AGENTS.md` na raiz é o índice que qualquer agente lê ao abrir o projeto.
-
-Criou ou editou skill? Edite sempre em `skills/` e rode os scripts de novo.
+> **Windows:** o sistema usa links simbólicos. Ative o Modo Desenvolvedor e
+> rode `git config --global core.symlinks true` **antes** de clonar. Se
+> preferir não usar links, `./scripts/conectar-codex.sh --copiar` funciona,
+> mas aí vira cópia e você perde a sincronia automática.
 
 ---
 

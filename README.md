@@ -1,10 +1,10 @@
 # Sete77OS
 
-> O sistema operacional do seu negócio dentro do Claude Code.
+> O sistema operacional do seu negócio dentro do seu agente de terminal.
 
 Você acaba de instalar o Sete77OS. Em alguns minutos, sua empresa vai
 ter uma memória própria, uma identidade visual aplicada em tudo que
-o sistema gerar, e 15 skills prontas pra fazer marketing, SEO, ads
+o sistema gerar, e 20 skills prontas pra fazer marketing, SEO, ads
 e operação rodarem com você dirigindo.
 
 Bora voar.
@@ -45,6 +45,44 @@ pasta não fica como "Sete77OS" — ela é o teu negócio agora.
 
 O `/instalar` roda uma vez só. Te entrevista sobre o negócio, monta a
 memória e configura o sistema. Depois disso, é só usar.
+
+---
+
+## Claude ou Codex — ou os dois
+
+Você pode rodar Claude Code e Codex no mesmo projeto, ao mesmo tempo, em
+janelas diferentes do VS Code. O contexto não se parte, porque **nada é
+copiado**: as pastas que cada agente procura são atalhos pro mesmo lugar.
+
+| O que muda | Onde mora de verdade |
+|---|---|
+| Contexto do negócio | `_memoria/*.md` |
+| Regras de operação | `AGENTS.md` (o `CLAUDE.md` aponta pra ele) |
+| Skills | `skills/` (o `.claude/skills` é atalho pra ela) |
+| Entregas | `saidas/`, `dados/`, `clientes/` |
+
+Aprendeu algo numa conversa do Codex? Na próxima conversa do Claude já está
+lá. Criou uma skill pelo Claude? O Codex enxerga na hora.
+
+Depois de clonar, rode uma vez — **funciona igual nos três sistemas**:
+
+**Windows**
+```powershell
+.\scripts\conectar.ps1
+```
+
+**macOS e Linux**
+```bash
+./scripts/conectar.sh
+```
+
+Não precisa de Modo Desenvolvedor, nem de admin, nem de configurar o git: no
+Windows o script usa *junction*, que qualquer conta cria. E cada atalho é
+conferido depois de criado — se o sistema de arquivos não aceitar link
+(pasta de rede, pendrive), o script avisa e te manda pro modo `-Copiar`, em
+vez de fingir que deu certo.
+
+Pra desfazer: `-Desligar` (Windows) ou `--desligar` (macOS/Linux).
 
 ---
 

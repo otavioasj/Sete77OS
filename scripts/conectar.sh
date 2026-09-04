@@ -54,6 +54,22 @@ for d in skills/*/; do
   n=$((n+1))
 done
 echo "  Codex: $n skills conectadas em $CODEX"
+
+# --- adoção: skill criada solta na pasta do Codex volta pro projeto ---
+adotadas=0
+for d in "$CODEX"/*/; do
+  [ -d "$d" ] || continue
+  s=$(basename "$d")
+  case "$s" in .*) continue;; esac
+  [ -L "${d%/}" ] && continue          # já é atalho nosso
+  [ -e "skills/$s" ] && continue       # conflito, já avisado acima
+  [ -f "$d/SKILL.md" ] || continue
+  mv "$d" "skills/$s"
+  ln -s "$RAIZ/skills/$s" "$CODEX/$s"
+  echo "  + '$s' foi criada solta no Codex — movida pro projeto e conectada"
+  adotadas=$((adotadas+1))
+done
+[ "$adotadas" -gt 0 ] && echo "  ($adotadas adotadas — confira e comite)"
 [ "$pulou" -gt 0 ] && echo "  ($pulou puladas por conflito de nome — resolva à mão)"
 [ "$MODO" = "--copiar" ] && echo "  ATENÇÃO: modo cópia. Editar num lado não reflete no outro."
 echo "Pronto. No Codex, ficam disponíveis no próximo turno."

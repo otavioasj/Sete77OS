@@ -33,6 +33,12 @@ projeto**, num lugar só:
 for aprendido numa conversa do Codex tem que estar visível pro Claude na
 conversa seguinte, e vice-versa. Se está no projeto, está compartilhado.
 
+Isso vale especialmente pra **skill nova**: criar sempre em `skills/` do
+projeto, nunca em `~/.codex/skills/` nem em `~/.claude/skills/`. Skill que
+nasce na pasta global do agente fica invisível pro outro agente e some do
+versionamento. Se acontecer por engano, rodar `scripts/conectar.sh`
+(ou `.ps1`) — ele detecta, move pro projeto e conecta.
+
 As pastas `.claude/skills/` e `~/.codex/skills/<skill>` são **atalhos** pra
 `skills/`, criados por `scripts/conectar.sh` (macOS/Linux) ou
 `scripts/conectar.ps1` (Windows). Editar por qualquer um dos caminhos

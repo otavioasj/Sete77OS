@@ -107,6 +107,23 @@ Get-ChildItem -Directory 'skills' | ForEach-Object {
 }
 $suf = if ($Copiar) { 'copiadas' } elseif ($tipo) { "conectadas ($tipo)" } else { 'ja conectadas' }
 Write-Host "  Codex: $n skills $suf em $Codex"
+
+# --- adocao: skill criada solta na pasta do Codex volta pro projeto ---
+$adotadas = 0
+if (-not $Copiar) {
+  Get-ChildItem -Directory $Codex -Force | ForEach-Object {
+    $s = $_.Name
+    if ($s.StartsWith('.')) { return }
+    if (Get-Alvo $_.FullName) { return }                      # ja e atalho
+    if (Test-Path (Join-Path 'skills' $s)) { return }          # conflito, ja avisado
+    if (-not (Test-Path (Join-Path $_.FullName 'SKILL.md'))) { return }
+    Move-Item -LiteralPath $_.FullName -Destination (Join-Path $Raiz "skills\$s")
+    New-Atalho (Join-Path $Codex $s) (Join-Path $Raiz "skills\$s") 'SKILL.md' | Out-Null
+    Write-Host "  + '$s' foi criada solta no Codex - movida pro projeto e conectada"
+    $script:adotadas++
+  }
+}
+if ($adotadas -gt 0) { Write-Host "  ($adotadas adotadas - confira e comite)" }
 if ($pulou -gt 0) { Write-Host "  ($pulou puladas por conflito de nome - resolva a mao)" }
 if ($Copiar) { Write-Host '  ATENCAO: modo copia. Editar num lado nao reflete no outro - rode o script de novo apos editar.' }
 Write-Host 'Pronto. No Codex, ficam disponiveis no proximo turno.'

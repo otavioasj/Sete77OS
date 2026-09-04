@@ -102,9 +102,3 @@ carrossel, slide, peça que o sistema gera respeita isso.
 
 `marketing/`, `saidas/` e `scripts/` são o resultado. O sistema produz,
 versiona no GitHub, fica tudo seu.
-
----
-
-## Quando precisar
-
-[mazzeoia.com.br](https://mazzeoia.com.br)
